@@ -1,0 +1,38 @@
+#! /usr/bin/perl
+
+my $passwd = $ARGV[0];
+my $vdomDir = $ARGV[1];
+$vdomDir =~ s/\/$//;
+
+if (!$vdomDir){
+        print <<EOF;
+Usage:
+        $0 [vpasswd file] [domains dir]
+
+Will go through the [vpasswd file] as found on old vmail installs
+and expand it into a bunch of .qmail-* files in the domains [dir] as 
+found on new vpopmail installs.
+Ignores MailDirs. Do those yourself.
+EOF
+exit 1;
+}
+
+open($v, "<", $vpasswd) or die "Error opening vpasswd file $vpasswd";
+my @eek;
+while(<$v>){
+        my ($alias,undef,$forwardTo) = split(/:/, $_);
+        chomp $forwardTo;
+        if ($forwardTo =~ /@/){
+                my $dotqmail = $vdomDir."/.qmail-".$alias;
+                print "$dotqmail:\t$alias -> $forwardTo\n";
+                `echo \"\&$forwardTo\" > $dotqmail`;
+        }else{
+                push @eek, "$alias - $forwardTo"
+        }
+}
+close($v);
+print "You'll need to sort these directories out manually:\n";
+foreach (@eek){
+        print "\t$_\n";
+}
+
