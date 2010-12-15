@@ -1,0 +1,62 @@
+#! /usr/bin/perl
+
+# Mon plugin for dumping data to files if the load or memory usage is too high. Isn't 
+# supposed to replace the load and memory plugins, it's just to help make sure there's
+# some useful data post-overload to work out how to stop the next one.
+
+# The latest version of this script should always be available at
+#   http://github.com/BigRedS/play/blob/master/overloaded.monitor
+
+use strict;
+
+my @dump_cmds = ("ps rauxwwc", "ps rauxww", "w", "pstree -A", "free -m", "iostat");
+if (`which iotop`){push (@dump_cmds, "iotop -b -o -n 1")}
+my $memory_threshold = "90";
+my $load_threshold = "1";	# This is per-cpu. A value of '1' on a two-cpu box means
+				# that the threshold is at a 'true' load avg value of 2
+				# cpus are counted via /proc/cpuinfo | grep processor :)
+my $directory = "/var/log/overloaded";
+my $filename_suffix = `date +%F-%H%M%S`;
+my $filename_base = "overloaded";
+
+if( ( ! -w $directory ) || ( ! -d $directory ) ){
+	die "$directory is not a writeable directory!";
+}
+
+open(my $f, "<", "/proc/loadavg");
+my ($loadavg1,$loadavg5,$loadavg15) = (split (/\s/, <$f>))[0,1,2,3];
+my $loadavg;
+foreach($loadavg1, $loadavg5, $loadavg15){	
+	if ($_ > $loadavg){
+		$loadavg = $_;
+	}
+}
+my $processors = 0;
+eval{
+	open(my $f, "<", "/proc/cpuinfo");
+	while(<$f>){
+		if (/processor/){
+			$processors++;
+		}
+	}
+};
+if($@){$processors = 1;}
+my $load = $loadavg/$processors;
+
+my ($memUsed, $memFree) = (split (/\s+/, `free | grep ^-`))[2,3];
+my $memPercent = ( $memUsed / ( $memUsed + $memFree ) ) * 100;
+
+my $file = $directory."/".$filename_base."-".$filename_suffix;
+
+if ( ($memPercent > $memory_threshold) || ( $load > $load_threshold) ) {
+	foreach(@dump_cmds){
+		`echo "# # # # # # # $_" >> $file`;
+		`$_ >> $file`;
+		`echo "" >> $file`;
+	}
+	print "Failed. l:$load_threshold m:$memory_threshold\n";
+	exit 1;
+}else{
+	print "Passed. l:$load_threshold m:$memory_threshold\n";
+	exit 0;
+}

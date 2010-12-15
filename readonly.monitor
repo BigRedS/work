@@ -1,0 +1,73 @@
+#! /usr/bin/perl
+use strict;
+
+#
+# By Avi, aged 25 1/2 
+#
+
+# Parses fstab, and for each device that looks like it should be writeable, 
+# attempts to write a file in the root of its mountpoint. Ignores CDs, 
+# floppy disks and swap. Anything else can be ignored with a comment in fstab so:
+#
+#readonly.ignore:/dev/sda1 /dev/sda2
+#
+# which specifies devices to not check. 
+#
+# The 'current' version of this can be found at:
+#   http://github.com/BigRedS/play/blob/master/readonly.monitor
+# click 'raw' for something wgettable. 
+#
+
+my $fstab = "/etc/fstab";
+my $testFile = ".write-test";
+
+# %fstab is a hash of arrays [mountpoint, filesystem, options] using the /dev
+# path as a key
+my %fstab;
+my @ignore;
+open(my $f, "<", $fstab);
+while(<$f>){
+	if ( /^#readonly\.ignore:/i ){
+		@ignore = split(/,\s?/, (split(/:/, $_))[1]);
+	}
+        # (( begins with a slash or 'UUID'))
+        if (( /^\s?\//) || (/^\s?UUID/ )) {
+                my ($dev,$mountpoint,$fs,$opt)=(split(/\s+/, $_))[0,1,2,3];
+                $fstab{$dev} = [$mountpoint, $fs, $opt];
+        }
+}
+
+my (@failure);
+foreach my $dev (keys(%fstab)){
+	if ( !grep(/$dev/, @ignore)) {
+	        my $mountpoint = $fstab{$dev}[0];
+	        my $fs = $fstab{$dev}[1];
+	        my @opt = split(/,/ , $fstab{$dev}[2]);
+	        my $file = $mountpoint."/".$testFile;
+	        $file =~ s/\/\//\//;
+	        #       neither swap nor cd     #mounted auto           # not a floppy disk or a cd
+	        if (($fs !~ /(swap|udf)/) && (grep(!/^noauto$/, @opt)) && ($dev !~ /\/dev\/(fd|cdrom)\d/)){
+	                `sudo /usr/bin/touch $file 2>&1 > /dev/null`;
+	                if ($? != 0){
+	                        push(@failure, $dev);
+	                }
+	        }
+	}
+}
+
+
+if ($failure[0]){
+        foreach(@failure){
+                chomp $_;
+                print $_." ";
+        }
+        if ($failure[1]){
+                print "are read-only\n";
+        }else{
+                print "is read-only\n";
+        }
+        exit 1;
+}else{
+        print "All writeable\n";
+        exit 0
+}
