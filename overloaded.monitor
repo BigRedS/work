@@ -5,7 +5,7 @@
 # some useful data post-overload to work out how to stop the next one.
 
 # The latest version of this script should always be available at
-#   http://github.com/BigRedS/play/blob/master/overloaded.monitor
+#   http://github.com/BigRedS/work/blob/master/overloaded.monitor
 
 use strict;
 

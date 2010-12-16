@@ -32,7 +32,7 @@
 #Full Name: Carlene
 
 # The latest version of this is at 
-# http://github.com/BigRedS/play/raw/master/sqwebmail-preconfigure.pl
+# http://github.com/BigRedS/work/blob/master/sqwebmail-preconfigure.pl
 
 
 if ( (!$ARGV[1]) && (! (-f $ARGV[0])) && (-t STDIN) ) {
