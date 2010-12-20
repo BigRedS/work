@@ -9,7 +9,7 @@ use strict;
 # attempts to write a file in the root of its mountpoint. Ignores CDs, 
 # floppy disks and swap. Anything else can be ignored with a comment in fstab so:
 #
-#/readonly.ignore:/dev/sda1 /dev/sda2
+#readonly.ignore:/dev/sda1 /dev/sda2
 #
 # which specifies devices to not check. 
 #
@@ -27,8 +27,8 @@ my %fstab;
 my @ignore;
 open(my $f, "<", $fstab);
 while(<$f>){
-	if ( /^#readonly\.ignore:i/i ){
-		foreach ( split(/\s+/, (split(/:/, $_))[1])){
+	if ( /^\s*#\s*readonly\.ignore\s*:i/i ){
+		foreach ( split(/\s+/, (split(/:/, $_))[1]) ){
 			push(@ignore, $_);
 		}
 	}
