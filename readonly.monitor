@@ -14,7 +14,7 @@ use strict;
 # which specifies devices to not check. 
 #
 # The 'current' version of this can be found at:
-#   http://github.com/BigRedS/play/blob/master/readonly.monitor
+#   http://github.com/BigRedS/work/blob/master/readonly.monitor
 # click 'raw' for something wgettable. 
 #
 
@@ -27,8 +27,10 @@ my %fstab;
 my @ignore;
 open(my $f, "<", $fstab);
 while(<$f>){
-	if ( /^#readonly\.ignore:/i ){
-		@ignore = split(/,\s?/, (split(/:/, $_))[1]);
+	if ( /^\s*#\s*readonly\.ignore\s*:i/i ){
+		foreach ( split(/\s+/, (split(/:/, $_))[1]) ){
+			push(@ignore, $_);
+		}
 	}
         # (( begins with a slash or 'UUID'))
         if (( /^\s?\//) || (/^\s?UUID/ )) {
