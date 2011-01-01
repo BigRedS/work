@@ -1,40 +1,40 @@
 #! /usr/bin/perl
 
-# Avi's handy script to get the number of downloaders from an apache access log 
-# with dates in the DD/Mmm/YY format. Expects to be called with three arguments:
-#
-# dlcount [ACCESS LOG] [MONTH] [COUNT]
-#
-# Will then return a count of each visiting IP address, in descending order, up
-# to a limit of COUNT, during MONTH. If MONTH and COUNT are omitted, or if MONTH 
-# is "NOW", will use the current month.
-#
+# Avi's handy script to get the number of downloaders from an apache access log.
+
+# The current version of this can probably be found at:
+#  https://github.com/BigRedS/work/blob/master/dlcount
 
 use strict;
+use Getopt::Std;
 
-my $in = $ARGV[0];
-my $max = $ARGV[2];
+# Faffing for Getopts:
+our $VERSION = 0.01;
+$Getopt::Std::STANDARD_HELP_VERSION = "true";
 
-## Yeah, this should be more accurate:
-my $dateregex = '(..)\/(...)\/(..)';
-# It's worth noting, too, that if the regex doesn't match a line, that line is just ignored
+ons = "c:f:hm:pr:";
+my %o;
+getopts( "$options", \%o) or &usage();
+my $in = $o{f};
+my $max = $o{c};
+my $dateregex = $o{r} || '..\/(...)\/..';
+if ($o{h}){&usage;}
 
+# month-related acrobatics:
 my @months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" );
 my $thisMonth = $months[(localtime())[4]];
+my $month = $o{m} || $thisMonth;
+if ($month =~ /^THIS$/){$month = $thisMonth;}
+if ($month =~ /^LAST$/){$month = $months[(localtime())[4] -1 ];}
 
-my $month = $ARGV[1] || $thisMonth;
-if ($month =~ /^NOW$/){$month = $thisMonth;}
-
+# Parse the file:
 my %ips;
-
 open (my $f, "<", $in) or die "Error opening input file $in";
 foreach (<$f>){
-	my ($d,$m,$y);
+	my $m;
 	if ($_ =~ m/$dateregex/){
-		($d,$m,$y) = ($1,$2,$3);
+		$m = $1;
 	}
-
-
 	if ( ($m =~ m/$month/i) || ($month =~ m/$m/i) ){
 		my $ip = (split(/ -/, $_))[0];
 		$ip = (s/\s+//, $ip);
@@ -43,12 +43,65 @@ foreach (<$f>){
 }
 close $f;
 
-my $key;
+# Iterate through the results:
+if($o{p}){print "$month\n";}
 my $count = 1;
-foreach $key (sort {$ips{$b} <=> $ips{$a}} keys %ips){
+foreach my $key (sort {$ips{$b} <=> $ips{$a}} keys %ips){
 	print "$ips{$key}\t$key\n";
 	if (($max) && ($count == $max)){
 		last;
 	}
 	$count ++;
+}
+
+
+sub usage(){
+	print <<EOF;
+$0 is a script which parses an Apache logfile totting up the 
+total number of downloads per IP address, and prints out this list 
+sorted by count, in descending order.
+
+USAGE:
+
+ $0 -f (-c NUM -m MONTH -p -r REGEX)
+   -c NUM   : number of records to return
+   -f FILE  : logfile to parse
+   -m MONTH : Month to look for. See below.
+   -p       : Start output with month name (handy with month keywords)
+   -r REGEX : Regex to use to extract the month from a line in the file
+
+ Only -f is mandatory. If -c is not passed, outputs all IP addresses, MONTH
+ defaults to this month and see below for the default REGEX. 
+
+ The argument to -m is looked for case-insensitively but unintelligently
+ in the file. 'Jan' is hence normally a better option than 'January', and
+ 'Ju' may be used to get a total for both June and July. 
+
+MONTH KEYWORDS
+
+There are two keywords that the -m switch interprets differently, these 
+ are case sensitive:
+
+ THIS	Deduce this month's name, and use that
+ LAST	Deduce last month's name, and use that
+
+ You may wish to use the -p switch to check it deduced as you were 
+ expecting.
+
+DATE REGEX
+
+The argument to -d is completely unsanitised, so you may do with it as you 
+ wish. Lines that don't match the regex are completely ignored. The regex 
+ should be constructed such that:
+  if (\$_ =~ /\$regex/){
+	  \$month = \$1;
+  }
+ will work as expected with your value for -m.  The current regex is:
+ $dateregex
+EOF
+exit 1;
+}
+
+sub HELP_MESSAGE(){
+	&usage();
 }
