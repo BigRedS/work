@@ -1,0 +1,54 @@
+#! /usr/bin/perl
+
+# Avi's handy script to get the number of downloaders from an apache access log 
+# with dates in the DD/Mmm/YY format. Expects to be called with three arguments:
+#
+# dlcount [ACCESS LOG] [MONTH] [COUNT]
+#
+# Will then return a count of each visiting IP address, in descending order, up
+# to a limit of COUNT, during MONTH. If MONTH and COUNT are omitted, or if MONTH 
+# is "NOW", will use the current month.
+#
+
+use strict;
+
+my $in = $ARGV[0];
+my $max = $ARGV[2];
+
+## Yeah, this should be more accurate:
+my $dateregex = '(..)\/(...)\/(..)';
+# It's worth noting, too, that if the regex doesn't match a line, that line is just ignored
+
+my @months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" );
+my $thisMonth = $months[(localtime())[4]];
+
+my $month = $ARGV[1] || $thisMonth;
+if ($month =~ /^NOW$/){$month = $thisMonth;}
+
+my %ips;
+
+open (my $f, "<", $in) or die "Error opening input file $in";
+foreach (<$f>){
+	my ($d,$m,$y);
+	if ($_ =~ m/$dateregex/){
+		($d,$m,$y) = ($1,$2,$3);
+	}
+
+
+	if ( ($m =~ m/$month/i) || ($month =~ m/$m/i) ){
+		my $ip = (split(/ -/, $_))[0];
+		$ip = (s/\s+//, $ip);
+		$ips{$ip}++;
+	}
+}
+close $f;
+
+my $key;
+my $count = 1;
+foreach $key (sort {$ips{$b} <=> $ips{$a}} keys %ips){
+	print "$ips{$key}\t$key\n";
+	if (($max) && ($count == $max)){
+		last;
+	}
+	$count ++;
+}
