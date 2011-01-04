@@ -12,13 +12,15 @@ use Getopt::Std;
 our $VERSION = 0.01;
 $Getopt::Std::STANDARD_HELP_VERSION = "true";
 
-ons = "c:f:hm:pr:";
+my $options = "c:f:hm:pr:";
 my %o;
 getopts( "$options", \%o) or &usage();
 my $in = $o{f};
 my $max = $o{c};
 my $dateregex = $o{r} || '..\/(...)\/..';
 if ($o{h}){&usage;}
+
+if (!$in){&usage;}
 
 # month-related acrobatics:
 my @months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" );
