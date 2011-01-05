@@ -12,13 +12,15 @@ use Getopt::Std;
 our $VERSION = 0.01;
 $Getopt::Std::STANDARD_HELP_VERSION = "true";
 
-my $options = "c:f:hm:pr:";
+my $options = "c:f:him:pr:s:S:";
 my %o;
 getopts( "$options", \%o) or &usage();
 my $in = $o{f};
 my $max = $o{c};
 my $dateregex = $o{r} || '..\/(...)\/..';
 if ($o{h}){&usage;}
+my $separator=$o{s} || "\n";
+my $countSeparator = $o{S} || "\t";
 
 if (!$in){&usage;}
 
@@ -49,27 +51,35 @@ close $f;
 if($o{p}){print "$month\n";}
 my $count = 1;
 foreach my $key (sort {$ips{$b} <=> $ips{$a}} keys %ips){
-	print "$ips{$key}\t$key\n";
+	unless($o{i}){
+		print $ips{$key}.$countSeparator.$key.$separator;
+	}else{
+		print $key.$separator;
+	}
 	if (($max) && ($count == $max)){
 		last;
 	}
 	$count ++;
 }
+print "\n";
 
 
 sub usage(){
 	print <<EOF;
 $0 is a script which parses an Apache logfile totting up the 
-total number of downloads per IP address, and prints out this list 
+total number of downloads per IP address, and prints out a list 
 sorted by count, in descending order.
 
 USAGE:
 
- $0 -f (-c NUM -m MONTH -p -r REGEX)
-   -c NUM   : number of records to return
-   -f FILE  : logfile to parse
+ $0 -f FILE (-c NUM -m MONTH -p -r REGEX)
+   -c NUM   : Number of records to return
+   -f FILE  : Logfile to parse
+   -i       : Only return a list of IP addresses, not a count
    -m MONTH : Month to look for. See below.
    -p       : Start output with month name (handy with month keywords)
+   -s       : Separator character to use between elements of output list
+   -S       : Separator character to use between count and IP address
    -r REGEX : Regex to use to extract the month from a line in the file
 
  Only -f is mandatory. If -c is not passed, outputs all IP addresses, MONTH
@@ -81,7 +91,7 @@ USAGE:
 
 MONTH KEYWORDS
 
-There are two keywords that the -m switch interprets differently, these 
+ There are two keywords that the -m switch interprets differently, these 
  are case sensitive:
 
  THIS	Deduce this month's name, and use that
@@ -92,7 +102,7 @@ There are two keywords that the -m switch interprets differently, these
 
 DATE REGEX
 
-The argument to -d is completely unsanitised, so you may do with it as you 
+ The argument to -d is completely unsanitised, so you may do with it as you 
  wish. Lines that don't match the regex are completely ignored. The regex 
  should be constructed such that:
   if (\$_ =~ /\$regex/){
