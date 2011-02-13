@@ -10,7 +10,7 @@
 
 // avi@positive-internet.com 2011
 
-error_reporting(0);
+error_reporting(1);
 
 // This is put at the bottom of the email as a "go here to check everything" link:
 $myurl = "http://positest.chits.positive-dedicated.net/sitecheck.php";
@@ -20,7 +20,7 @@ $success = "<h1>Don't worry. Everything is A-OK</h1>";
 $failure = "<h1>Things are broken!</h1>";
 // File in which to keep track of broken sites:
 $errorFile = "./sitecheck.log";
-$configFile = "./sitecheck.conf";
+$configFile = "./sitecheck.conf.php";
 
 /*
 * Sites is an array of arrays of site information. They are saved in $configFile
@@ -37,8 +37,12 @@ $configFile = "./sitecheck.conf";
 *  'lasterror' => A timestamp of the last time an error occured, reset
 *            to 0 upon success.
 */
+require($configFile);
 
-$sites = eval('return '.file_get_contents($configFile));
+if(!is_array($sites))
+	throw new Exception('Config file not set');
+
+// Output Buffer so we can put any output into the error log file
 ob_start();
 
 $knownErrors = array("Hornsey Park Surgery","");
@@ -47,8 +51,8 @@ $knownErrors = array("Hornsey Park Surgery","");
 * Loop through the above-defined sites and see if we can find the text string in their
 * source. If not, push it to the $badThings array
 */
-$badThings = array();
-foreach($sites as $site){
+$hadErrors = false;
+foreach($sites as &$site){
 	if(fopen($site['url'], "r")){
 		$fh = fopen($site['url'], "r");
 		$page = stream_get_contents($fh);
@@ -56,47 +60,40 @@ foreach($sites as $site){
 			$error = "Content check failed";
 			$site['error'] = "Content check failed. Page doesn't contain string <tt>".$site['text']."</tt>";
 
-			if ($site['lasterror'] < strtotime('15 minutes ago')))
+			if ($site['lasterror'] < strtotime('15 minutes ago'))
 				errorMail($site);
 			echo errorTerminal($site);
 	#		echo errorWeb($site);
 
 			$site['lasterror'] = time();
+			$hadErrors = true;
 		}else{
 			// If it loaded OK, clear the error messages
 			$site['lasterror'] = 0;
 			$site[''] = '';
+echo "Is OK";
 		}
 	}else{
-		if ($site['lasterror'] < strtotime('15 minutes ago')))
+		if ($site['lasterror'] < strtotime('15 minutes ago'))
 			errorMail($site);
 		echo errorTerminal($site);
 //		echo errorWeb($site);
 		$site['error'] = "Site not loadable";
 		$site['lasterror'] = time();
-		array_push($badThings, $site);
+		$hadErrors = true;
 	}
 }
 
-
-
-/* If there's anything in $badThings, loop through it and print some errors. If not, 
-* say that everything's alright.
-*/
-
-if ($badThings[0]){
-#	print "$failure";
-	foreach($badThings as $site){
-		// Only send an error if we havent notified in the last X minutes
-	}
-	print "\n";
-}else{
-	print "$success";
-}
+if($hadErrors == false)
+	echo isset($_SERVER['REMOTE_ADDR']) ? "<h2>Don't worry. Everything is A-OK</h2>" : "Don't worry. Everything is A-OK";
 
 // Save the current state of sites
-file_put_contents($configFile, var_export($sites, true));
+file_put_contents($configFile, '<?php $sites = '.var_export($sites, true).';');
 
+print "\n\n";
+
+file_put_contents($errorFile, ob_get_contents());
+ob_end_flush();
 
 /*
 * errorWeb is passed a $site array (as defined at the top of the script) and returns an
@@ -136,6 +133,3 @@ function errorMail($site){
 function errorTerminal($site){
 	return $site['name']." is broken\n";
 }
-
-print "\n\n";
-
