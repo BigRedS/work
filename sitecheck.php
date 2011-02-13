@@ -12,34 +12,6 @@
 
 error_reporting(0);
 
-/*
-* Sites is an array of arrays of site information.These arrays 
-* contain the folliowing key/value pairs:
-*
-*  'name'  => A human-understandable name of the website
-*  'url'   => The URL to the page to be checked
-*  'text'  => Some text to search for in the page at the above URL.
-*             If this text is not found, the website is deemed to be 
-*             'down'.
-*  'email' => A comma-separated list of emails to which alerts are to 
-*             be sent. 
-*/
-
-$sites = array(
-	array(			
-		'name' => "Hornsey Park Surgery",
-		'url' => "http://www.hornseyparksurgery.co.uk/",
-		'text' => "All staff, reception nurses and doctors",
-		'email' => "avi@positive-internet.com"
-	),
-	array(
-		'name' => "Avi",
-		'url'  => "http://avi.co/",
-		'text' => "Avi",
-		'email'=> "a@b.c"
-	)
-);
-
 // This is put at the bottom of the email as a "go here to check everything" link:
 $myurl = "http://positest.chits.positive-dedicated.net/sitecheck.php";
 // Title (and entire content) of webpage if nothing's broken:
@@ -48,8 +20,26 @@ $success = "<h1>Don't worry. Everything is A-OK</h1>";
 $failure = "<h1>Things are broken!</h1>";
 // File in which to keep track of broken sites:
 $errorFile = "./sitecheck.log";
+$configFile = "./sitecheck.conf";
 
-print `echo "" > $errorFile`;
+/*
+* Sites is an array of arrays of site information. They are saved in $configFile
+* and re-written there after script execution to remember some details. 
+* These arrays contain the folliowing key/value pairs:
+*
+*  'name'  => A human-understandable name of the website
+*  'url'   => The URL to the page to be checked
+*  'text'  => Some text to search for in the page at the above URL.
+*             If this text is not found, the website is deemed to be 
+*             'down'.
+*  'email' => A comma-separated list of emails to which alerts are to 
+*             be sent.
+*  'lasterror' => A timestamp of the last time an error occured, reset
+*            to 0 upon success.
+*/
+
+$sites = eval('return '.file_get_contents($configFile));
+ob_start();
 
 $knownErrors = array("Hornsey Park Surgery","");
 
@@ -58,7 +48,6 @@ $knownErrors = array("Hornsey Park Surgery","");
 * source. If not, push it to the $badThings array
 */
 $badThings = array();
-`echo ""  > $errorFile`;
 foreach($sites as $site){
 	if(fopen($site['url'], "r")){
 		$fh = fopen($site['url'], "r");
@@ -66,53 +55,58 @@ foreach($sites as $site){
 		if(!strpos($page, $site['text'])){
 			$error = "Content check failed";
 			$site['error'] = "Content check failed. Page doesn't contain string <tt>".$site['text']."</tt>";
-			array_push($badThings, $site);
+
+			if ($site['lasterror'] < strtotime('15 minutes ago')))
+				errorMail($site);
+			echo errorTerminal($site);
+	#		echo errorWeb($site);
+
+			$site['lasterror'] = time();
+		}else{
+			// If it loaded OK, clear the error messages
+			$site['lasterror'] = 0;
+			$site[''] = '';
 		}
 	}else{
+		if ($site['lasterror'] < strtotime('15 minutes ago')))
+			errorMail($site);
+		echo errorTerminal($site);
+//		echo errorWeb($site);
 		$site['error'] = "Site not loadable";
+		$site['lasterror'] = time();
 		array_push($badThings, $site);
 	}
 }
 
 
 
-/*
-* If there's anything in $badThings, loop through it and print some errors. If not, 
+/* If there's anything in $badThings, loop through it and print some errors. If not, 
 * say that everything's alright.
 */
 
 if ($badThings[0]){
 #	print "$failure";
 	foreach($badThings as $site){
-		print "> ";
-		// Only send an email if we didn't see this error on last run
-		if (!in_array($site['name'], $knownErrors)){
-			$fileString = $site['name'];
-			if( `echo "$fileString" >> $errorFile`){
-				print "<!-- :) -->";
-			}else{
-				print "<!-- :( -->";
-			}
-		}
-		errorTerminal($site);
-#		errorWeb($site);
-#		errorMaiil($site);
+		// Only send an error if we havent notified in the last X minutes
 	}
 	print "\n";
 }else{
 	print "$success";
 }
 
+// Save the current state of sites
+file_put_contents($configFile, var_export($sites, true));
 
 
 /*
-* errorWeb is passed a $site array (as defined at the top of the script) and prints an
+* errorWeb is passed a $site array (as defined at the top of the script) and returns an
 * htmlified 'report' aimed at a browser
 */ 
 function errorWeb($site){
-		print "<h3>".$site['name']."</h3>";
-		print "<h3><a href=\"".$site['url']."\">".$site['url']."</a></h3>";
-		print "\t<b>Error</b> :".$site['error']."</p>";
+		$return = "<h3>".$site['name']."</h3>";
+		$return .= "<h3><a href='".$site['url']."'>".$site['url']."</a></h3>";
+		$return .= "<b>Error</b> :".$site['error']."</p>";
+		return $return;
 }
 
 
@@ -140,7 +134,7 @@ function errorMail($site){
 }
 
 function errorTerminal($site){
-	print $site['name']." is broken\n";
+	return $site['name']." is broken\n";
 }
 
 print "\n\n";
