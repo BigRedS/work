@@ -26,13 +26,18 @@ error_reporting(0);
 */
 
 $sites = array(
-	array(	
-		
+	array(			
 		'name' => "Hornsey Park Surgery",
 		'url' => "http://www.hornseyparksurgery.co.uk/",
 		'text' => "All staff, reception nurses and doctors",
 		'email' => "avi@positive-internet.com"
 	),
+	array(
+		'name' => "Avi",
+		'url'  => "http://avi.co/",
+		'text' => "Avi",
+		'email'=> "a@b.c"
+	)
 );
 
 // This is put at the bottom of the email as a "go here to check everything" link:
@@ -41,13 +46,19 @@ $myurl = "http://positest.chits.positive-dedicated.net/sitecheck.php";
 $success = "<h1>Don't worry. Everything is A-OK</h1>";
 // Title of webpage if things are broken:
 $failure = "<h1>Things are broken!</h1>";
+// File in which to keep track of broken sites:
+$errorFile = "./sitecheck.log";
 
+print `echo "" > $errorFile`;
+
+$knownErrors = array("Hornsey Park Surgery","");
 
 /*
 * Loop through the above-defined sites and see if we can find the text string in their
 * source. If not, push it to the $badThings array
 */
 $badThings = array();
+`echo ""  > $errorFile`;
 foreach($sites as $site){
 	if(fopen($site['url'], "r")){
 		$fh = fopen($site['url'], "r");
@@ -69,12 +80,25 @@ foreach($sites as $site){
 * If there's anything in $badThings, loop through it and print some errors. If not, 
 * say that everything's alright.
 */
+
 if ($badThings[0]){
-	print "$failure";
+#	print "$failure";
 	foreach($badThings as $site){
-		errorWeb($site);
-		errorMail($site);
+		print "> ";
+		// Only send an email if we didn't see this error on last run
+		if (!in_array($site['name'], $knownErrors)){
+			$fileString = $site['name'];
+			if( `echo "$fileString" >> $errorFile`){
+				print "<!-- :) -->";
+			}else{
+				print "<!-- :( -->";
+			}
+		}
+		errorTerminal($site);
+#		errorWeb($site);
+#		errorMaiil($site);
 	}
+	print "\n";
 }else{
 	print "$success";
 }
@@ -115,6 +139,9 @@ function errorMail($site){
 #	mail($to, $subject, $body, $headers);
 }
 
+function errorTerminal($site){
+	print $site['name']." is broken\n";
+}
 
-
+print "\n\n";
 
