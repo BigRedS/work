@@ -16,17 +16,13 @@ foreach(keys(%dirs)){
 	my @sites;
 	my $dh;
 	eval {opendir($dh, $dirname);};
-	if ( $? ){
-		warn "Couldn't open $dirname\n";
-	}else{
+	if ( ! $@ ){
 		my @files = grep { !/^\./ } readdir($dh);
 		foreach(@files){
 			my $f;
 			my $file = $dirname."/".$_;
 			eval {open ($f, $file);};
-			if ($?){
-				warn "Couldn't open $_ in $dirname";
-			}else{
+			if ( !$@ ){
 				while(<$f>){
 					if (/^\s*Server(Name|Alias)\s+(.+)/i){
 						my $serverName = $2;
