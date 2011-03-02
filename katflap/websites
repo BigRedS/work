@@ -2,8 +2,7 @@
 use strict;
 
 # Prints all the ServerNames configured apache-style in given directories. All
-# files in the given directory are 'grepped' for ServerName.
-
+# files in the given directories are 'grepped' for ServerName:
 my %dirs = (
 	apache => '/etc/apache',
 	apache2	=> '/etc/apache2/sites-enabled',
@@ -49,4 +48,3 @@ foreach(keys(%servers)){
 		print "$label: $_\n";
 	}
 }
-	
