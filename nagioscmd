@@ -1,0 +1,63 @@
+#! /usr/bin/perl
+
+my $checkcommands = "/home/avi/bin//etc/nagios/checkcommands.cfg";
+my $services = "/home/avi/bin/etc/nagios/services.cfg";
+
+$serviceDescription = $ARGV[0];
+
+if (!$ARGV[0] || $ARGV[1]){
+	&usage();
+}
+
+# read whole file as one line
+local($/);
+
+# Get the check_command for the supplied service_description out of services.cfg
+## probably should rejig the regex to wiork in either order.
+my $command;
+open ($fh, "<", $services) or die "Error opening services.cfg file ($services) : $!";
+$f = <$fh>;
+if ($f =~ /\{[^\}]*service_description\s*$serviceDescription\s*[^\}]*check_command\s*(\w+)\s*\n/){
+	 $command = $1;
+	print "Found check_command! ",  $command , "\n";
+}else{
+	die "Couldn't find $command used in $services";
+}
+close($fh);
+
+
+# Having got the check_command above, find its associated command_line from checkcommands.cfg
+open ($fh, "<", $checkcommands) or die "Error opening checkcommands.cfg file ($checkcommands) : $!";
+$f = <$fh>;
+my $commandLine;
+if ($f =~ /\{[^\}]*command_name\s+$command\s*[^\}]+command_line\s*([^\}]+)\}/i){
+	$commandLine = $1;
+}else{
+	die "Couldn't find command_line for command ($command)\n";
+}
+close($fh);
+
+# If we've got this far, be happy and useful:
+print "Found command_line!\n\n";
+print $commandLine;
+print "\n\n";
+
+sub usage() {
+print <<EOF;
+
+$0; get actual commands from nagios error messages
+
+USAGE:
+	$0 [NAGIOS_MESSAGE]
+
+Where NAGIOS_MESSAGE is effectively the bit between 'SMS Alert:" and "Critical" 
+in the serverlog.
+
+It's a bit dumb, but it should just not match rather than give you the wrong 
+command line.
+EOF
+exit 1;
+
+}
+
+exit 0;
