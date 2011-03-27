@@ -8,7 +8,8 @@
 # Avi 2011
 
 # The latest version of this is probably available at: 
-# 
+#  https://github.com/BigRedS/work/blob/master/nagioscmd
+#  https://github.com/BigRedS/work/raw/master/nagioscmd
 
 
 my $checkcommands = "/etc/nagios/checkcommands.cfg";
@@ -28,7 +29,9 @@ local($/);
 my $command;
 open ($fh, "<", $services) or die "Error opening services.cfg file ($services) : $!";
 $f = <$fh>;
-if ($f =~ /\{[^\}]*service_description\s*$serviceDescription\s*[^\}]*check_command\s*(\w+)\s*\n/){
+if (($f =~ /\{[^\}]*service_description\s*$serviceDescription\s*[^\}]*check_command\s*(\w+)\s*\n/)
+     or ($f =~ /\{[^\}]*check_command\s*(\w+)\s*\n[^\}]*service_description\s*$serviceDescription/) ){
+
 	 $command = $1;
 	print "Found check_command! ",  $command , "\n";
 }else{
