@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Prints out (php-cli) loaded php4 and php5 modules
+
+which php5 > /dev/null
+if [ $? == 0 ]
+then
+	for i in `php5 -m | grep -v "\[" | grep -v "^$"`
+	do
+			echo "php5: $i"
+	done
+fi
+
+which php4 > /dev/null
+if [ $? == 0 ]
+then
+	for i in `php4 -m | grep -v "\[" | grep -v "^$"`
+	do
+			echo "php4: $i"
+	done
+fi

@@ -1,0 +1,50 @@
+#! /usr/bin/perl
+use strict;
+
+# Prints all the ServerNames configured apache-style in given directories. All
+# files in the given directories are 'grepped' for ServerName:
+my %dirs = (
+	apache => '/etc/apache',
+	apache2	=> '/etc/apache2/sites-enabled',
+	nginx => '/etc/nginx/sites-enabled'
+	);
+my %servers;
+foreach(keys(%dirs)){
+	my $dirname = $dirs{$_};
+	my $label = $_;
+	my @sites;
+	my $dh;
+	eval {opendir($dh, $dirname);};
+	if ( ! $@ ){
+		my @files = grep { !/^\./ } readdir($dh);
+		foreach(@files){
+			my $f;
+			my $file = $dirname."/".$_;
+			eval {open ($f, $file);};
+			if ( !$@ ){
+				while(<$f>){
+					if (/^\s*Server(Name|Alias)\s+(.+)/i){
+						my $serverName = $2;
+						if ($serverName =~ /\S\s\S/){
+							foreach(split(/\s+/, $serverName)){
+								push(@sites, $_);
+							}
+						}else{
+							push(@sites, $serverName);
+						}
+					}
+				}
+			}
+		}
+		if (@sites[0]){
+			$servers{$label}=\@sites;
+		}
+	}
+}
+foreach(keys(%servers)){
+	my $label = $_;
+	my @sites = @{$servers{$label}};
+	foreach(@sites){
+		print "$label: $_\n";
+	}
+}
