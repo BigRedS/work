@@ -37,8 +37,8 @@ $configFile = "./sitecheck.conf.json";
 *  'lasterror' => A timestamp of the last time an error occured, reset
 *            to 0 upon success.
 */
-require($configFile);
-#sites = json_decode(file_get_contents($configFile));
+#require($configFile);
+$sites = json_decode(file_get_contents($configFile), true);
 
 if(!is_array($sites))
 	throw new Exception('Config file not set');
@@ -89,7 +89,12 @@ if($hadErrors == false)
 	echo isset($_SERVER['REMOTE_ADDR']) ? "<h2>Don't worry. Everything is A-OK</h2>" : "Don't worry. Everything is A-OK";
 
 // Save the current state of sites
-file_put_contents($configFile, json_encode($sites));
+
+$json = json_encode($sites);
+
+$json = str_replace(array('{', '}', ',"',''), array("{\n","\n}",",\t\n\"",''), $json);
+
+file_put_contents($configFile, $json);
 
 print "\n\n";
 
