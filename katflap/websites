@@ -2,8 +2,7 @@
 use strict;
 
 # Prints all the ServerNames configured apache-style in given directories. All
-# files in the given directory are 'grepped' for ServerName.
-
+# files in the given directories are 'grepped' for ServerName:
 my %dirs = (
 	apache => '/etc/apache',
 	apache2	=> '/etc/apache2/sites-enabled',
@@ -16,17 +15,13 @@ foreach(keys(%dirs)){
 	my @sites;
 	my $dh;
 	eval {opendir($dh, $dirname);};
-	if ( $? ){
-		warn "Couldn't open $dirname\n";
-	}else{
+	if ( ! $@ ){
 		my @files = grep { !/^\./ } readdir($dh);
 		foreach(@files){
 			my $f;
 			my $file = $dirname."/".$_;
 			eval {open ($f, $file);};
-			if ($?){
-				warn "Couldn't open $_ in $dirname";
-			}else{
+			if ( !$@ ){
 				while(<$f>){
 					if (/^\s*Server(Name|Alias)\s+(.+)/i){
 						my $serverName = $2;
@@ -53,4 +48,3 @@ foreach(keys(%servers)){
 		print "$label: $_\n";
 	}
 }
-	
