@@ -25,7 +25,7 @@ $configFile = "./sitecheck.conf.php";
 /*
 * Sites is an array of arrays of site information. They are saved in $configFile
 * and re-written there after script execution to remember some details. 
-* These arrays contain the folliowing key/value pairs:
+* These arrays contain the following key/value pairs:
 *
 *  'name'  => A human-understandable name of the website
 *  'url'   => The URL to the page to be checked
