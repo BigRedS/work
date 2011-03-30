@@ -20,7 +20,7 @@ $success = "<h1>Don't worry. Everything is A-OK</h1>";
 $failure = "<h1>Things are broken!</h1>";
 // File in which to keep track of broken sites:
 $errorFile = "./sitecheck.log";
-$configFile = "./sitecheck.conf.php";
+$configFile = "./sitecheck.conf.json";
 
 /*
 * Sites is an array of arrays of site information. They are saved in $configFile
@@ -38,6 +38,7 @@ $configFile = "./sitecheck.conf.php";
 *            to 0 upon success.
 */
 require($configFile);
+#sites = json_decode(file_get_contents($configFile));
 
 if(!is_array($sites))
 	throw new Exception('Config file not set');
@@ -88,7 +89,7 @@ if($hadErrors == false)
 	echo isset($_SERVER['REMOTE_ADDR']) ? "<h2>Don't worry. Everything is A-OK</h2>" : "Don't worry. Everything is A-OK";
 
 // Save the current state of sites
-file_put_contents($configFile, '<?php $sites = '.var_export($sites, true).';');
+file_put_contents($configFile, json_encode($sites));
 
 print "\n\n";
 
