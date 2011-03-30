@@ -1,16 +1,39 @@
 <?php
 /*
-* This script goes through its $sites array, and checks each site contains the 
-* text we think it is supposed to. If any don't it prints an error to the web
-* client and sends an appropriate email. If all are fine, it tells this to the 
-* visiting client, too. 
-* The idea is that Nagios performs a content check upon it, and therefore monitors
-* the whole server's worth of virtualhosts with one content-check
-*/
+ * sitecheck.php - an aggregate website content check
+ * avi@positive-internet.com 2011
+ *
+ *
+ * This script goes through the configured urls and checks each returns a page 
+ * containing the test we think it is supposed to.
+ * If any don't it prints an error to the web client and sends an appropriate 
+ * email. If all are fine, it tells this to the visiting client, too. 
+ *
+ * The idea is that Nagios performs a content check upon it, and therefore monitors
+ * the whole server's worth of virtualhosts with one content-check
+ *
+ * Configuration is in a JSON file, configured in $configFile. The format is:
+ *
+ * [{
+ *	"name":"Hornsey Park Surgery",	
+ *	"url":"http:\/\/www.hornseyparksurgery.co.uk\/",	
+ *	"text":"All staff, reception nurses and doctors",	
+ *	"email":"sami@greenbury.co.uk",	
+ * },
+ * Where:
+ *   Name:  name by which the site is known
+ *   url:   URL through which to retrieve the site
+ *   text:  Text to check for in the source of the page
+ *   email: Who to email if that text isn't there
+ *
+ * leave email blank to have no mail sent. It is read at the beginning of the script
+ * and rewritten at the end; the script *must* be able to write to it. It is in there
+ * that it stores the "this was broken last time, so I won't send another email" memory.
+ *
+ */
 
 // avi@positive-internet.com 2011
 
-error_reporting(1);
 
 // This is put at the bottom of the email as a "go here to check everything" link:
 $myurl = "http://positest.chits.positive-dedicated.net/sitecheck.php";
@@ -37,7 +60,6 @@ $configFile = "./sitecheck.conf.json";
 *  'lasterror' => A timestamp of the last time an error occured, reset
 *            to 0 upon success.
 */
-#require($configFile);
 $sites = json_decode(file_get_contents($configFile), true);
 
 if(!is_array($sites))
@@ -46,12 +68,11 @@ if(!is_array($sites))
 // Output Buffer so we can put any output into the error log file
 ob_start();
 
-$knownErrors = array("Hornsey Park Surgery","");
 
 /*
-* Loop through the above-defined sites and see if we can find the text string in their
-* source. If not, push it to the $badThings array
-*/
+ * Loop through the above-defined sites and see if we can find the text string in their
+ * source. If not, push it to the $badThings array
+ */
 $hadErrors = false;
 foreach($sites as &$site){
 	if(fopen($site['url'], "r")){
@@ -62,9 +83,13 @@ foreach($sites as &$site){
 			$site['error'] = "Content check failed. Page doesn't contain string <tt>".$site['text']."</tt>";
 
 			if ($site['lasterror'] < strtotime('15 minutes ago'))
-				errorMail($site);
-			echo errorTerminal($site);
-	#		echo errorWeb($site);
+				if ($site['email'] != ""){
+					errorMail($site);
+				}
+				// Uncomment this to be a CLI thing
+				echo errorTerminal($site);
+				// or this to be a web thing
+				echo errorWeb($site);
 
 			$site['lasterror'] = time();
 			$hadErrors = true;
@@ -77,8 +102,10 @@ echo "Is OK";
 	}else{
 		if ($site['lasterror'] < strtotime('15 minutes ago'))
 			errorMail($site);
-		echo errorTerminal($site);
-//		echo errorWeb($site);
+		// Uncomment this to be a CLI thing
+//		echo errorTerminal($site);
+		// or this to be a web thing
+		echo errorWeb($site);
 		$site['error'] = "Site not loadable";
 		$site['lasterror'] = time();
 		$hadErrors = true;
@@ -89,11 +116,8 @@ if($hadErrors == false)
 	echo isset($_SERVER['REMOTE_ADDR']) ? "<h2>Don't worry. Everything is A-OK</h2>" : "Don't worry. Everything is A-OK";
 
 // Save the current state of sites
-
 $json = json_encode($sites);
-
 $json = str_replace(array('{', '}', ',"',''), array("{\n","\n}",",\t\n\"",''), $json);
-
 file_put_contents($configFile, $json);
 
 print "\n\n";
@@ -133,7 +157,7 @@ function errorMail($site){
 	$body.= $site['text']."\n";
 	$body.= "All sites' status at $myurl\n";
 	
-#	mail($to, $subject, $body, $headers);
+	mail($to, $subject, $body, $headers);
 }
 
 function errorTerminal($site){
