@@ -5,7 +5,7 @@
  *
  *
  * This script goes through the configured urls and checks each returns a page 
- * containing the test we think it is supposed to.
+ * containing the text we think it is supposed to.
  * If any don't it prints an error to the web client and sends an appropriate 
  * email. If all are fine, it tells this to the visiting client, too. 
  *
@@ -21,7 +21,8 @@
  *	"email":"sami@greenbury.co.uk",	
  * },
  * Where:
- *   Name:  name by which the site is known
+ *   name:  name by which the site is known. *must* be unique, since it is used as the 
+ *          key for an associative array.
  *   url:   URL through which to retrieve the site
  *   text:  Text to check for in the source of the page
  *   email: Who to email if that text isn't there
@@ -29,6 +30,8 @@
  * leave email blank to have no mail sent. It is read at the beginning of the script
  * and rewritten at the end; the script *must* be able to write to it. It is in there
  * that it stores the "this was broken last time, so I won't send another email" memory.
+ *
+ * The plan is to add more checks, but I haven't thought of any yet.
  *
  */
 
@@ -97,7 +100,6 @@ foreach($sites as &$site){
 			// If it loaded OK, clear the error messages
 			$site['lasterror'] = 0;
 			$site[''] = '';
-echo "Is OK";
 		}
 	}else{
 		if ($site['lasterror'] < strtotime('15 minutes ago'))
