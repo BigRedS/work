@@ -92,7 +92,8 @@ if (!$mysqlpass){
 	system('stty','echo');
 }
 
-
+print "Installing packages...";
+  `apt-get -y install dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql`;
 
 print "Creating user vmail...";
 `useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
