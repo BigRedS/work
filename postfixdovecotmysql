@@ -7,7 +7,7 @@ use LWP::Simple;
 my $mysqluser = "root";
 my $mysqlpass = $ARGV[0];
 
-my $dovecotSqlFile = "/etc/dovecot/dovecot-sql";
+my $dovecotSqlFile = "/etc/dovecot/dovecot-sql.conf";
 
 my $postfixDir = "/etc/postfix/";
 my $postfixMaincf = "/etc/postfix/main.cf";
@@ -142,7 +142,7 @@ print "Configuring db user...";
 my $db = DBI->connect('DBI:mysql:'.$dbname, $mysqluser, $mysqlpass) or die "Error connecting to to database: $DBI::errstr";
 
 #$db->do("CREATE USER $dbuser\@localhost IDENTIFIED BY \'$dbpass\';");
-$db->do("GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY \'$dbpass\';");
+$db->do("GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY '$dbpass';");
 $db->do('flush privileges;');
 $db->disconnect();
 print "done\n";
