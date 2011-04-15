@@ -1,0 +1,162 @@
+#! /usr/bin/perl
+
+use strict;
+use DBI;
+use LWP::Simple;
+
+my $mysqluser = "root";
+my $mysqlpass = $ARGV[0];
+
+my $dovecotSqlFile = "/etc/dovecot/dovecot-sql";
+
+my $postfixDir = "/etc/postfix/";
+my $postfixMaincf = "/etc/postfix/main.cf";
+my $postfixMastercf = "/etc/postfix/master.cf";
+my $mailboxDir = "/var/vmail/";
+
+my $dbuser = "postfix2";
+my $dbpass = `pwgen 25 1`;
+my $dbhost = "localhost";
+my $dbname = "postfix2";
+
+my $sqlStructureURL = "http://avi.co/stuff/PostfixDovecotMySQLStructure.sql";
+
+
+#### Postfix-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+
+my $postfixCredentials = <<EOF;
+user = $dbuser
+password = $dbpass
+hosts = $dbhost
+dbname = $dbname
+EOF
+
+
+my %postfixFiles = (
+	'mysql_virtual_alias_domain_catchall_maps'	=>  'query = SELECT goto FROM alias,alias_domain WHERE alias_domain.alias_domain = \'%d\' and alias.address = CONCAT(\'@\', alias_domain.target_domain) AND alias.active = 1 AND alias_domain.active=\'1\'',
+	'mysql_virtual_alias_domain_mailbox_maps'	=>  'query = SELECT maildir FROM mailbox,alias_domain WHERE alias_domain.alias_domain = \'%d\' and mailbox.username = CONCAT(\'%u\', \'@\', alias_domain.target_domain) AND mailbox.active = 1 AND alias_domain.active=\'1\'',
+	'mysql_virtual_alias_domain_maps'		=>  'query = SELECT goto FROM alias,alias_domain WHERE alias_domain.alias_domain = \'%d\' and alias.address = CONCAT(\'%u\', \'@\', alias_domain.target_domain) AND alias.active = 1 AND alias_domain.active=\'1\'',
+	'mysql_virtual_alias_maps'			=>  'query = SELECT goto FROM alias WHERE address=\'%s\' AND active = \'1\'',
+	'mysql_virtual_domains_maps'			=>  'query = SELECT domain FROM domain WHERE domain=\'%s\' AND active = \'1\'',
+	'mysql_virtual_mailbox_maps'			=>  'query = SELECT maildir FROM mailbox WHERE username=\'%s\' AND active = \'1\'',
+);
+
+my $main_cf = <<EOF;
+virtual_mailbox_domains = proxy:mysql:/etc/postfix//mysql_virtual_domains_maps.cf
+virtual_alias_maps =
+   proxy:mysql:$postfixDir/mysql_virtual_alias_maps.cf,
+   proxy:mysql:$postfixDir/mysql_virtual_alias_domain_maps.cf,
+   proxy:mysql:$postfixDir/mysql_virtual_alias_domain_catchall_maps.cf
+virtual_mailbox_maps =
+   proxy:mysql:$postfixDir/mysql_virtual_mailbox_maps.cf,
+   proxy:mysql:$postfixDir/mysql_virtual_alias_domain_mailbox_maps.cf
+EOF
+
+my $master_cf = <<EOF;
+dovecot   unix  -       n       n       -       -       pipe
+  flags=DRhu user=vmail:mail argv=/usr/libexec/dovecot/deliver -d \${recipient}
+EOF
+
+#### Dovecot-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+my $dovecot_sql = <<EOF;
+connect = host=$dbhost dbname=$dbname user=$dbuser password=$dbpass
+driver = mysql
+default_pass_scheme = MD5-CRYPT
+password_query = SELECT username AS user,password FROM mailbox WHERE username = '%u' AND active='1'
+user_query = SELECT maildir, 122 AS uid, 122 AS gid FROM mailbox WHERE username = '%u' AND active='1'
+EOF
+
+my $dovecotManual = <<EOF;
+
+You now need to put this in the `auth default' block of /etc/dovecot/dovecot.conf:
+
+  userdb sql {
+    args = /etc/dovecot/dovecot-sql.conf
+  }
+  passdb sql {
+    args = /etc/dovecot/dovecot-sql.conf
+  }
+EOF
+
+
+
+#### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+
+if (!$mysqlpass){
+	print "Please enter the password for mysql user \'$mysqluser\':\n";
+	system('stty','-echo');
+	chop($mysqlpass=<STDIN>);
+	system('stty','echo');
+}
+
+
+
+print "Creating user vmail...";
+`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
+my $uid = getpwnam('vmail');
+print "Done (UID: $uid)\n";
+
+print "creating mailbox dir ($mailboxDir)...";
+`mkdir -p $mailboxDir`;
+`chmod 770 $mailboxDir`;
+`chown vmail.mail /var/vmail`;
+print "done\n";
+
+while ( my($file, $query) = each %postfixFiles ){
+	my $file = $postfixDir."/".$file.".cf";
+	print "Creating $file...";
+	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
+	print $f $postfixCredentials;
+	print $f $query;
+	close($f);
+	print "done\n";
+}
+print "Creating $dovecotSqlFile...";
+open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
+print $f $dovecot_sql;
+close($f);
+print "done\n";
+
+print "Appending to $postfixMaincf...";
+open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
+print $f $main_cf;
+close($f);
+print "done\n";
+
+print "Appending to $postfixMastercf...";
+open (my $f, ">>", $postfixMastercf);
+print $f $master_cf;
+close($f);
+print "done\n";
+
+print "Creating db...";
+my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
+`$createdbCMD`;
+print "done\n";
+
+print "Configuring db user...";
+my $db = DBI->connect('DBI:mysql:'.$dbname, $mysqluser, $mysqlpass) or die "Error connecting to to database: $DBI::errstr";
+
+#$db->do("CREATE USER $dbuser\@localhost IDENTIFIED BY \'$dbpass\';");
+$db->do("GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY \'$dbpass\';");
+$db->do('flush privileges;');
+$db->disconnect();
+print "done\n";
+
+
+## Download an sql dump of the table structure and feed it into MySQL:
+print "Creating tables...";
+my $tmpfile = "/tmp/postfixdovecotsql".time();
+getstore($sqlStructureURL, $tmpfile);
+`cat $tmpfile |  mysql -u $mysqluser -p$mysqlpass $dbname`;
+#unlink($tmpfile);
+print "done\n";
+
+
+print $dovecotManual;
+exit 0;
+
+
