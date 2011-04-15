@@ -1,7 +1,6 @@
 #! /usr/bin/perl
 
 use strict;
-use DBI;
 use LWP::Simple;
 
 my $mysqluser = "root";
@@ -18,6 +17,8 @@ my $dbuser = "postfix2";
 my $dbpass = `pwgen 25 1`;
 my $dbhost = "localhost";
 my $dbname = "postfix2";
+
+chomp $dbpass;
 
 my $sqlStructureURL = "http://avi.co/stuff/PostfixDovecotMySQLStructure.sql";
 
@@ -133,18 +134,27 @@ print $f $master_cf;
 close($f);
 print "done\n";
 
-print "Creating db...";
+#print "Creating db...";
 my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
 `$createdbCMD`;
 print "done\n";
 
 print "Configuring db user...";
-my $db = DBI->connect('DBI:mysql:'.$dbname, $mysqluser, $mysqlpass) or die "Error connecting to to database: $DBI::errstr";
+#my $db = DBI->connect('DBI:mysql:'.$dbname, $mysqluser, $mysqlpass) or die "Error connecting to to database: $DBI::errstr";
+#
+my $mysqlconnect = "mysql -u $mysqluser -p$mysqlpass";
+my @mysqlCommands=(
+	"create database $dbname",
+	"GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY \'$dbpass\'",
+	"flush privileges"
+);
+foreach(@mysqlCommands){
+	my $cmd = "echo \"$_\" | $mysqlconnect";
+	print "[$cmd]\n";
+	`$cmd`;
+}
 
-#$db->do("CREATE USER $dbuser\@localhost IDENTIFIED BY \'$dbpass\';");
-$db->do("GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY '$dbpass';");
-$db->do('flush privileges;');
-$db->disconnect();
+exit 0;
 print "done\n";
 
 
