@@ -150,11 +150,8 @@ my @mysqlCommands=(
 );
 foreach(@mysqlCommands){
 	my $cmd = "echo \"$_\" | $mysqlconnect";
-	print "[$cmd]\n";
 	`$cmd`;
 }
-
-exit 0;
 print "done\n";
 
 
