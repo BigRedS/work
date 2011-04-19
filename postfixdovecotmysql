@@ -15,13 +15,31 @@ my $mailboxDir = "/var/vmail/";
 
 my $dbuser = "postfix2";
 my $dbpass = `pwgen 25 1`;
+chomp $dbpass;
 my $dbhost = "localhost";
 my $dbname = "postfix2";
 
-chomp $dbpass;
+my $fqdn = `hostname -f`;
+chomp $fqdn;
 
-my $sqlStructureURL = "http://avi.co/stuff/PostfixDovecotMySQLStructure.sql";
 
+#### Postfixadmin-specific config  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+my $postfixadminURL = "http://downloads.sourceforge.net/project/postfixadmin/postfixadmin/postfixadmin-2.3.3/postfixadmin-2.3.3.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fpostfixadmin%2F&ts=1303232343&use_mirror=ignum";
+my $postfixadminDir = "/var/www/postfixadmin";
+my $postfixadminPasswordHash = "0642ee71a7fce9b604697b60aaacef3e:d70d5bc659232de9f05fa758a24028604a8c30ae";
+my $postfixadminPasswordPlain = "password";
+
+my $postfixadminManual = <<EOF;
+
+And then you can go and visit
+  http://$fqdn/postfixadmin/setup.php
+and create a new admin user using this setup password:
+  $postfixadminPasswordPlain;
+
+Have Fun!
+
+EOF
 
 #### Postfix-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -84,72 +102,70 @@ EOF
 
 
 #### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-
-
-if (!$mysqlpass){
-	print "Please enter the password for mysql user \'$mysqluser\':\n";
-	system('stty','-echo');
-	chop($mysqlpass=<STDIN>);
-	system('stty','echo');
-}
-
-print "Installing packages...";
-  `apt-get -y install dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql`;
-print "done\n";
-
-print "Creating user vmail...";
-`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
-my $uid = getpwnam('vmail');
-chomp $uid;
-print "Done (UID: $uid)\n";
-
-print "Creating mailbox dir ($mailboxDir)...";
-`mkdir -p $mailboxDir`;
-`chmod 770 $mailboxDir`;
-`chown vmail.mail /var/vmail`;
-print "done\n";
-
-while ( my($file, $query) = each %postfixFiles ){
-	my $file = $postfixDir."/".$file.".cf";
-	print "Creating $file...";
-	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
-	print $f $postfixCredentials;
-	print $f $query;
-	close($f);
-	print "done\n";
-}
-
-print "Creating $dovecotSqlFile...";
-open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
-print $f $dovecot_sql;
-close($f);
-print "done\n";
-
-print "Appending to $postfixMaincf...";
-open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
-print $f $main_cf;
-close($f);
-print "done\n";
-
-print "Appending to $postfixMastercf...";
-open (my $f, ">>", $postfixMastercf);
-print $f $master_cf;
-close($f);
-print "done\n";
-
-#print "Creating db...";
-my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
-`$createdbCMD`;
-print "done\n";
-
-print "Configuring db user...";
-#my $db = DBI->connect('DBI:mysql:'.$dbname, $mysqluser, $mysqlpass) or die "Error connecting to to database: $DBI::errstr";
 #
+#
+#if (!$mysqlpass){
+#	print "Please enter the password for mysql user \'$mysqluser\':\n";
+#	system('stty','-echo');
+#	chop($mysqlpass=<STDIN>);
+#	system('stty','echo');
+#}
+#
+#print "Installing packages...";
+#  `apt-get -y install dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql`;
+#print "done\n";
+#
+#print "Creating user vmail...";
+#`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
+#my $uid = getpwnam('vmail');
+#chomp $uid;
+#print "Done (UID: $uid)\n";
+#
+#print "Creating mailbox dir ($mailboxDir)...";
+#`mkdir -p $mailboxDir`;
+#`chmod 770 $mailboxDir`;
+#`chown vmail.mail /var/vmail`;
+#print "done\n";
+#
+#while ( my($file, $query) = each %postfixFiles ){
+#	my $file = $postfixDir."/".$file.".cf";
+#	print "Creating $file...";
+#	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
+#	print $f $postfixCredentials;
+#	print $f $query;
+#	close($f);
+#	print "done\n";
+#}
+#
+#print "Creating $dovecotSqlFile...";
+#open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
+#print $f $dovecot_sql;
+#close($f);
+#print "done\n";
+#
+#print "Appending to $postfixMaincf...";
+#open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
+#print $f $main_cf;
+#close($f);
+#print "done\n";
+#
+#print "Appending to $postfixMastercf...";
+#open (my $f, ">>", $postfixMastercf);
+#print $f $master_cf;
+#close($f);
+#print "done\n";
+#
+##print "Creating db...";
+#my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
+#`$createdbCMD`;
+#print "done\n";
+#
+print "Configuring db user...";
 my $mysqlconnect = "mysql -u $mysqluser -p$mysqlpass";
 my @mysqlCommands=(
-	"create database $dbname",
+#	"create database $dbname",
 	"GRANT ALL PRIVILEGES ON $dbname.* TO $dbuser IDENTIFIED BY \'$dbpass\'",
-	"flush privileges"
+#	"flush privileges"
 );
 foreach(@mysqlCommands){
 	my $cmd = "echo \"$_\" | $mysqlconnect";
@@ -157,9 +173,47 @@ foreach(@mysqlCommands){
 }
 print "done\n";
 
+print "Getting postfixadmin...";
+getstore($postfixadminURL, "/var/www/postfixadmin.tar.gz");
+print "done\n";
 
+print "Extracting postfixadmin...";
+`tar -xf /var/www/postfixadmin.tar`;
+`mv /var/www/postfixadmin-?.?.? $postfixadminDir`;
+print "done\n";
+
+print "Configuring postfixadmin...";
+open (my $f, "<", $postfixadminDir."/config.inc.php") or die "Error opening postifixadmin's config.inc.php";
+my @config = <$f>;
+close $f;
+my @newconfig;
+foreach(@config){
+	my $line = $_;
+	if ($line =~ /^\$CONF\[\'configured/){
+		$line = "\$CONF['configured'] = true;\n";
+	}elsif ($line =~ /^\$CONF\[\'database_user/){
+		$line = "\$CONF[\'database_user\'] = \'$dbuser\';\n";
+	}elsif ($line =~ /^\$CONF\[\'database_password/){
+		$line = "\$CONF[\'database_password\'] = \'$dbpass\';\n";
+	}elsif ($line =~ /^\$CONF\[\'database_name/){
+		$line = "\$CONF[\'database_name\'] = \'$dbname\';\n";
+	}elsif($line =~ /^\$CONF\[\'setup_password/){
+		$line =  "\$CONF[\'setup_password\'] = \'$postfixadminPasswordHash\';\n";
+	}
+
+open (my $f, ">", $postfixadminDir."/config.inc.php") or die "Error opening postfixadmin's config.inc.php for writing";
+
+
+	push(@newconfig, $line);
+}
+
+open (my $f, ">", $postfixadminDir."/config.inc.php") or die "Error opening postfixadmin's config.inc.php for writing";
+print $f join("", @newconfig);
+close($f);
+print "done\n";
 
 print $dovecotManual;
+print $postfixadminManual;
 exit 0;
 
 
