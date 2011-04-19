@@ -35,7 +35,7 @@ my $postfixadminManual = <<EOF;
 And then you can go and visit
   http://$fqdn/postfixadmin/setup.php
 and create a new admin user using this setup password:
-  $postfixadminPasswordPlain;
+  $postfixadminPasswordPlain
 
 Have Fun!
 
@@ -101,65 +101,65 @@ EOF
 
 
 
-#### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-#
-#
-#if (!$mysqlpass){
-#	print "Please enter the password for mysql user \'$mysqluser\':\n";
-#	system('stty','-echo');
-#	chop($mysqlpass=<STDIN>);
-#	system('stty','echo');
-#}
-#
-#print "Installing packages...";
-#  `apt-get -y install dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql`;
-#print "done\n";
-#
-#print "Creating user vmail...";
-#`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
-#my $uid = getpwnam('vmail');
-#chomp $uid;
-#print "Done (UID: $uid)\n";
-#
-#print "Creating mailbox dir ($mailboxDir)...";
-#`mkdir -p $mailboxDir`;
-#`chmod 770 $mailboxDir`;
-#`chown vmail.mail /var/vmail`;
-#print "done\n";
-#
-#while ( my($file, $query) = each %postfixFiles ){
-#	my $file = $postfixDir."/".$file.".cf";
-#	print "Creating $file...";
-#	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
-#	print $f $postfixCredentials;
-#	print $f $query;
-#	close($f);
-#	print "done\n";
-#}
-#
-#print "Creating $dovecotSqlFile...";
-#open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
-#print $f $dovecot_sql;
-#close($f);
-#print "done\n";
-#
-#print "Appending to $postfixMaincf...";
-#open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
-#print $f $main_cf;
-#close($f);
-#print "done\n";
-#
-#print "Appending to $postfixMastercf...";
-#open (my $f, ">>", $postfixMastercf);
-#print $f $master_cf;
-#close($f);
-#print "done\n";
-#
-##print "Creating db...";
-#my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
-#`$createdbCMD`;
-#print "done\n";
-#
+### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+
+if (!$mysqlpass){
+	print "Please enter the password for mysql user \'$mysqluser\':\n";
+	system('stty','-echo');
+	chop($mysqlpass=<STDIN>);
+	system('stty','echo');
+}
+
+print "Installing packages...";
+  `apt-get -y install dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql`;
+print "done\n";
+
+print "Creating user vmail...";
+`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
+my $uid = getpwnam('vmail');
+chomp $uid;
+print "Done (UID: $uid)\n";
+
+print "Creating mailbox dir ($mailboxDir)...";
+`mkdir -p $mailboxDir`;
+`chmod 770 $mailboxDir`;
+`chown vmail.mail /var/vmail`;
+print "done\n";
+
+while ( my($file, $query) = each %postfixFiles ){
+	my $file = $postfixDir."/".$file.".cf";
+	print "Creating $file...";
+	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
+	print $f $postfixCredentials;
+	print $f $query;
+	close($f);
+	print "done\n";
+}
+
+print "Creating $dovecotSqlFile...";
+open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
+print $f $dovecot_sql;
+close($f);
+print "done\n";
+
+print "Appending to $postfixMaincf...";
+open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
+print $f $main_cf;
+close($f);
+print "done\n";
+
+print "Appending to $postfixMastercf...";
+open (my $f, ">>", $postfixMastercf);
+print $f $master_cf;
+close($f);
+print "done\n";
+
+#print "Creating db...";
+my $createdbCMD = "echo \"create database $dbname\" | mysql -u $mysqluser -p$mysqlpass";
+`$createdbCMD`;
+print "done\n";
+
 print "Configuring db user...";
 my $mysqlconnect = "mysql -u $mysqluser -p$mysqlpass";
 my @mysqlCommands=(
