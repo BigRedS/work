@@ -31,6 +31,7 @@ foreach(@files){
 		print STDERR "WARN: Couldn't parse ServerName from $file\n";
 	}else{
 		$serverName =~ s/\s+/_/g;
+		$serverName =~ s/^www\.//;
 		my $newName = $dir."/".$serverName.$suffix;
 		move($file, $newName);
 	}
