@@ -195,7 +195,7 @@ print " done\n";
 
 print "Appending to /etc/dovecot/dovecot.conf...";
 open (my $f, ">>", "/etc/dovecot/dovecot.conf") or die "Error opening dovecot.conf (/etc/dovecot/dovecot.conf) for appending";
-print $f &dovecotAppend();
+print $f &dovecotAppend($uid);
 close($f);
 print " done\n";
 
