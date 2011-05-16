@@ -135,7 +135,7 @@ EOF
 
 sub dovecotConf(){
 	my $uid = shift;
-	return "first_valid_uid=$uid\nmail_location=maildir:$mailboxDir\n";
+	return "first_valid_uid=$uid\nmail_location=maildir:$mailboxDir/%u/\n";
 }
 
 
