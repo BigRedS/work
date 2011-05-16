@@ -92,7 +92,7 @@ virtual_alias_maps =
 virtual_mailbox_maps =
    proxy:mysql:$postfixDir/mysql_virtual_mailbox_maps.cf,
    proxy:mysql:$postfixDir/mysql_virtual_alias_domain_mailbox_maps.cf
-virtual_mailbox_base = $mailboxDir;
+virtual_mailbox_base = $mailboxDir
 virtual_uid_maps = static:$uid
 virtual_gid_maps = static:$gid
 EOF
@@ -133,9 +133,9 @@ comment out any other userdb or passdb stanzas:
 EOF
 }
 
-sub dovecotAppend(){
+sub dovecotConf(){
 	my $uid = shift;
-	return "first_valid_uid=$uid\n";
+	return "first_valid_uid=$uid\nmail_location=maildir:$mailboxDir\n";
 }
 
 
@@ -197,7 +197,7 @@ print " done\n";
 
 print "Appending to /etc/dovecot/dovecot.conf...";
 open (my $f, ">>", "/etc/dovecot/dovecot.conf") or die "Error opening dovecot.conf (/etc/dovecot/dovecot.conf) for appending";
-print $f &dovecotAppend($uid);
+print $f &dovecotConf($uid);
 close($f);
 print " done\n";
 
