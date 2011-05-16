@@ -53,7 +53,7 @@ my $postfixadminPasswordPlain = "password";
 
 my $postfixadminManual = <<EOF;
 
-And then you can go and visit
+All done, now you can go and visit
   http://$fqdn/postfixadmin/setup.php
 and create a new admin user using this setup password:
   $postfixadminPasswordPlain
@@ -119,20 +119,6 @@ driver = mysql
 default_pass_scheme = MD5-CRYPT
 password_query = SELECT username AS user,password FROM mailbox WHERE username = '%u' AND active='1'
 user_query = SELECT maildir, $uid AS uid, 122 AS gid FROM mailbox WHERE username = '%u' AND active='1'
-EOF
-}
-
-sub dovecotManual() {
-	return <<EOF;
-You now need to put this in the `auth default' block of /etc/dovecot/dovecot.conf and 
-comment out any other userdb or passdb stanzas:
-
-  userdb sql {
-    args = /etc/dovecot/dovecot-sql.conf
-  }
-  passdb sql {
-    args = /etc/dovecot/dovecot-sql.conf
-  }
 EOF
 }
 
@@ -314,8 +300,6 @@ open (my $f, ">", $postfixadminDir."/config.inc.php") or die "Error opening post
 print $f join("", @newconfig);
 close($f);
 print " done\n";
-
-#print &dovecotManual();
 
 print "Restarting postfix...";
 system("/etc/init.d/postfix restart");
