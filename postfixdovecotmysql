@@ -149,12 +149,13 @@ sub dovecotConf(){
 		# Set mail_location:
 		my $line = $_;
 		if (/^\s*#\s*Mail_Location\s*$/){
-			$line = "mail_location = $mailboxDir/%u/";
+			$line = "mail_location = $mailboxDir/%u/\n";
+			$line =~ s/\/\//\//;
 		}
 
 		# set first_valid_uid
 		if (/^#first_valid_uid/){
-			$line = "first_valid_uid = $uid";
+			$line = "first_valid_uid = $uid\n";
 		}
 
 		# comment out passdb pam and userdb pam lines
