@@ -9,6 +9,13 @@
 #Depends: libwww-perl, mysql-server, postfix
 
 use strict;
+
+eval{require LWP::Simple;}
+if($@){
+	print "I need LWP::Simple, install libwww-perl\n";
+	exit 1;
+}
+
 use LWP::Simple;
 
 my $mysqluser = "root";
