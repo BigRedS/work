@@ -62,13 +62,14 @@ EOF
 #### Postfix-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 
-my $postfixCredentials = <<EOF;
+sub postfixCredentials() {
+	return <<EOF;
 user = $dbuser
 password = $dbpass
 hosts = $dbhost
 dbname = $dbname
 EOF
-
+}
 
 my %postfixFiles = (
 	'mysql_virtual_alias_domain_catchall_maps'	=>  'query = SELECT goto FROM alias,alias_domain WHERE alias_domain.alias_domain = \'%d\' and alias.address = CONCAT(\'@\', alias_domain.target_domain) AND alias.active = 1 AND alias_domain.active=\'1\'',
@@ -79,7 +80,10 @@ my %postfixFiles = (
 	'mysql_virtual_mailbox_maps'			=>  'query = SELECT maildir FROM mailbox WHERE username=\'%s\' AND active = \'1\'',
 );
 
-my $main_cf = <<EOF;
+sub main_cf(){
+	my $uid = shift;
+	my $gid = shift;
+	return <<EOF;
 virtual_mailbox_domains = proxy:mysql:/etc/postfix//mysql_virtual_domains_maps.cf
 virtual_alias_maps =
    proxy:mysql:$postfixDir/mysql_virtual_alias_maps.cf,
@@ -88,25 +92,34 @@ virtual_alias_maps =
 virtual_mailbox_maps =
    proxy:mysql:$postfixDir/mysql_virtual_mailbox_maps.cf,
    proxy:mysql:$postfixDir/mysql_virtual_alias_domain_mailbox_maps.cf
+virtual_uid_maps = static:$uid
+virtual_gid_maps = static:$gid
 EOF
+}
 
-my $master_cf = <<EOF;
+
+sub master_cf() {
+	return <<EOF;
 dovecot   unix  -       n       n       -       -       pipe
   flags=DRhu user=vmail:mail argv=/usr/libexec/dovecot/deliver -d \${recipient}
 EOF
+}
 
 #### Dovecot-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
-my $dovecot_sql = <<EOF;
+sub dovecot_sql() {
+my $uid = shift;
+print <<EOF;
 connect = host=$dbhost dbname=$dbname user=$dbuser password=$dbpass
 driver = mysql
 default_pass_scheme = MD5-CRYPT
 password_query = SELECT username AS user,password FROM mailbox WHERE username = '%u' AND active='1'
-user_query = SELECT maildir, 122 AS uid, 122 AS gid FROM mailbox WHERE username = '%u' AND active='1'
+user_query = SELECT maildir, $uid AS uid, 122 AS gid FROM mailbox WHERE username = '%u' AND active='1'
 EOF
+}
 
-my $dovecotManual = <<EOF;
-
+sub dovecotManual() {
+	return <<EOF;
 You now need to put this in the `auth default' block of /etc/dovecot/dovecot.conf:
 
   userdb sql {
@@ -116,7 +129,12 @@ You now need to put this in the `auth default' block of /etc/dovecot/dovecot.con
     args = /etc/dovecot/dovecot-sql.conf
   }
 EOF
+}
 
+sub dovecotAppend(){
+	my $uid = shift;
+	return "first_valid_uid: $uid\n";
+}
 
 
 ### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -149,6 +167,7 @@ print " done\n";
 print "Creating user vmail...";
 `useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
 my $uid = getpwnam('vmail');
+my $gid = getgrnam('mail');
 chomp $uid;
 print " done (UID: $uid)\n";
 
@@ -162,7 +181,7 @@ while ( my($file, $query) = each %postfixFiles ){
 	my $file = $postfixDir."/".$file.".cf";
 	print "Creating $file...";
 	open(my $f, ">", $file) or die "Error opening postfix conf file $_ for writing. Does the dir exist?";
-	print $f $postfixCredentials;
+	print $f &postfixCredentials();
 	print $f $query;
 	close($f);
 	print " done\n";
@@ -170,19 +189,25 @@ while ( my($file, $query) = each %postfixFiles ){
 
 print "Creating $dovecotSqlFile...";
 open (my $f, ">", $dovecotSqlFile) or die "Error opening dovecot SQL file ($dovecotSqlFile) for writing";
-print $f $dovecot_sql;
+print $f &dovecot_sql($uid);
+close($f);
+print " done\n";
+
+print "Appending to /etc/dovecot/dovecot.conf...";
+open (my $f, ">>", "/etc/dovecot/dovecot.conf") or die "Error opening dovecot.conf (/etc/dovecot/dovecot.conf) for appending";
+print $f &dovecotAppend();
 close($f);
 print " done\n";
 
 print "Appending to $postfixMaincf...";
 open (my $f, ">>", $postfixMaincf) or die "Error opening postfix's main.cf ($postfixMaincf) for writing";
-print $f $main_cf;
+print $f &main_cf($uid,$gid);
 close($f);
 print " done\n";
 
 print "Appending to $postfixMastercf...";
 open (my $f, ">>", $postfixMastercf);
-print $f $master_cf;
+print $f &master_cf;
 close($f);
 print " done\n";
 
@@ -240,7 +265,7 @@ print $f join("", @newconfig);
 close($f);
 print " done\n";
 
-print $dovecotManual;
+print &dovecotManual();
 print $postfixadminManual;
 exit 0;
 
