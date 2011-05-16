@@ -9,6 +9,7 @@
 #Depends: libwww-perl, mysql-server, postfix
 
 use strict;
+use File::Copy;
 
 eval{
 	require LWP::Simple;
@@ -23,6 +24,8 @@ if($@){
 my $mysqluser = "root";
 my $mysqlpass = $ARGV[0];
 
+my $dovecotConf = "/etc/dovecot/dovecot.conf";
+my $dovecotConfBackupFile = "/etc/dovecot/bak_dovecot.conf";
 my $dovecotSqlFile = "/etc/dovecot/dovecot-sql.conf";
 
 my $postfixDir = "/etc/postfix";
@@ -134,7 +137,52 @@ EOF
 }
 
 sub dovecotConf(){
+	my $conffile = shift;
 	my $uid = shift;
+
+	copy ($dovecotConf, $dovecotConfBackupFile) or die "Error backing up Dovecot config file ($dovecotConf to $dovecotConfBackupFile)";
+	open(my $in, "<", $dovecotConfBackupFile) or die "Error opening dovecot backup file ($dovecotConfBackupFile) for reading";
+	open(my $out, ">", $dovecotConf) or die "Error opening Dovecot config file ($dovecotConf) for writing";
+
+	my $inBlock = 0;
+	while(<$in>){
+
+		# Set mail_location:
+		my $line = $_;
+		if (/^\s*#\s*Mail_Location\s*$/){
+			$line = "mail_location = $mailboxDir/%u/";
+		}
+
+		# set first_valid_uid
+		if (/^#first_valid_uid/){
+			$line = "first_valid_uid = $uid";
+		}
+
+		# comment out passdb pam and userdb pam lines
+		if( (/\s*passdb pam {/) || (/\s*userdb passwd {/) ){
+			$line =~ s/^/#/;
+			$inBlock=1;
+		}
+		#... and their closure
+		if( (/\s*}/) && ($inBlock == 1) ){
+			$line =~ s/^/#/;
+			$inBlock = 0;
+		}
+
+		# uncomment passdb sql lines
+		if ( (/\s*#passdb sql/) || (/\s*#userdb sql/) || (/\s*#args =.+sql.+/) ){
+			$line =~ s/#/ /;
+			$inBlock = 2;
+		}
+		#... and their closure
+		if( (/\s*#\s*}/) && ($inBlock == 2) ){
+			$line =~ s/#/ /;
+			$inBlock = 0;
+		}
+		print $out $line;
+	}	
+
+
 	return "first_valid_uid=$uid\nmail_location=maildir:$mailboxDir/%u/\n";
 }
 
