@@ -17,6 +17,7 @@ eval{
 };
 if($@){
 	print "I need LWP::Simple, install libwww-perl\n";
+	print "(I'll also need postfix and mysql-server, so you might want to check those now, too)\n";
 	exit 1;
 }
 
@@ -302,7 +303,7 @@ close($f);
 print " done\n";
 
 print "Restarting postfix...";
-system("/etc/init.d/postfix restart");
+system("/etc/init.d/postfix restart 2>/dev/null >/dev/null");
 if ($? != 0){
 	print " ERROR\n";
 }else{
@@ -310,7 +311,7 @@ if ($? != 0){
 }
 
 print "Restarting dovecot...";
-system("/etc/init.d/dovecot restart");
+system("/etc/init.d/dovecot restart 2>/dev/null >/dev/null");
 if ($? != 0){
 	print " ERROR\n";
 }else{
