@@ -314,7 +314,24 @@ print $f join("", @newconfig);
 close($f);
 print " done\n";
 
-print &dovecotManual();
+#print &dovecotManual();
+
+print "Restarting postfix...";
+system("/etc/init.d/postfix restart");
+if ($? != 0){
+	print " ERROR\n";
+}else{
+	print " done\n";
+}
+
+print "Restarting dovecot...";
+system("/etc/init.d/dovecot restart");
+if ($? != 0){
+	print " ERROR\n";
+}else{
+	print " done\n";
+}
+
 print $postfixadminManual;
 exit 0;
 
