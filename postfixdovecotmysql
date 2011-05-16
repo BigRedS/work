@@ -109,7 +109,7 @@ EOF
 
 sub dovecot_sql() {
 my $uid = shift;
-print <<EOF;
+return <<EOF;
 connect = host=$dbhost dbname=$dbname user=$dbuser password=$dbpass
 driver = mysql
 default_pass_scheme = MD5-CRYPT
@@ -156,7 +156,7 @@ if (!$mysqlpass){
 	system('stty','echo');
 }
 
-print "Installing packages...";
+print "Installing packages (this can take a few minutes)...";
 `apt-get -y install $packages`;
 print " done\n";
 
