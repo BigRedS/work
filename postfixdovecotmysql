@@ -21,11 +21,11 @@ my $postfixMaincf = "/etc/postfix/main.cf";
 my $postfixMastercf = "/etc/postfix/master.cf";
 my $mailboxDir = "/var/vmail/";
 
-my $dbuser = "postfix2";
+my $dbuser = "postfix";
 my $dbpass = `pwgen 25 1`;
 chomp $dbpass;
 my $dbhost = "localhost";
-my $dbname = "postfix2";
+my $dbname = "postfix";
 
 my $fqdn = `hostname -f`;
 chomp $fqdn;
