@@ -10,7 +10,7 @@
 
 use strict;
 
-eval{require LWP::Simple;}
+eval{require LWP::Simple;};
 if($@){
 	print "I need LWP::Simple, install libwww-perl\n";
 	exit 1;
