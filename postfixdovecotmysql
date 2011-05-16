@@ -133,7 +133,7 @@ EOF
 
 sub dovecotAppend(){
 	my $uid = shift;
-	return "first_valid_uid: $uid\n";
+	return "first_valid_uid=$uid\n";
 }
 
 
