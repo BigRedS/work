@@ -10,13 +10,15 @@
 
 use strict;
 
-eval{require LWP::Simple;};
+eval{
+	require LWP::Simple;
+	LWP::Simple->import();
+};
 if($@){
 	print "I need LWP::Simple, install libwww-perl\n";
 	exit 1;
 }
 
-use LWP::Simple;
 
 my $mysqluser = "root";
 my $mysqlpass = $ARGV[0];
