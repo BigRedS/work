@@ -92,6 +92,7 @@ virtual_alias_maps =
 virtual_mailbox_maps =
    proxy:mysql:$postfixDir/mysql_virtual_mailbox_maps.cf,
    proxy:mysql:$postfixDir/mysql_virtual_alias_domain_mailbox_maps.cf
+virtual_mailbox_base = $mailboxDir;
 virtual_uid_maps = static:$uid
 virtual_gid_maps = static:$gid
 EOF
@@ -120,7 +121,8 @@ EOF
 
 sub dovecotManual() {
 	return <<EOF;
-You now need to put this in the `auth default' block of /etc/dovecot/dovecot.conf:
+You now need to put this in the `auth default' block of /etc/dovecot/dovecot.conf and 
+comment out any other userdb or passdb stanzas:
 
   userdb sql {
     args = /etc/dovecot/dovecot-sql.conf
@@ -165,7 +167,7 @@ print "Restarting Apache2...";
 print " done\n";
 
 print "Creating user vmail...";
-`useradd -r -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
+`useradd -r -d $mailboxDir -s /sbin/nologin -c "Virtual mailbox" vmail`;
 my $uid = getpwnam('vmail');
 my $gid = getgrnam('vmail');
 chomp $uid;
