@@ -137,7 +137,6 @@ EOF
 }
 
 sub dovecotConf(){
-	my $conffile = shift;
 	my $uid = shift;
 
 	copy ($dovecotConf, $dovecotConfBackupFile) or die "Error backing up Dovecot config file ($dovecotConf to $dovecotConfBackupFile)";
@@ -171,7 +170,7 @@ sub dovecotConf(){
 
 		# uncomment passdb sql lines
 		if ( (/\s*#passdb sql/) || (/\s*#userdb sql/) || (/\s*#args =.+sql.+/) ){
-			$line =~ s/#/ /;
+		 	$line =~ s/#/ /;
 			$inBlock = 2;
 		}
 		#... and their closure
