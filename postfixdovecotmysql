@@ -101,7 +101,7 @@ EOF
 sub master_cf() {
 	return <<EOF;
 dovecot   unix  -       n       n       -       -       pipe
-  flags=DRhu user=vmail:mail argv=/usr/libexec/dovecot/deliver -d \${recipient}
+  flags=DRhu user=vmail:vmail argv=/usr/libexec/dovecot/deliver -d \${recipient}
 EOF
 }
 
@@ -165,16 +165,16 @@ print "Restarting Apache2...";
 print " done\n";
 
 print "Creating user vmail...";
-`useradd -r -g mail -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
+`useradd -r -d /var/vmail -s /sbin/nologin -c "Virtual mailbox" vmail`;
 my $uid = getpwnam('vmail');
-my $gid = getgrnam('mail');
+my $gid = getgrnam('vmail');
 chomp $uid;
 print " done (UID: $uid)\n";
 
 print "Creating mailbox dir ($mailboxDir)...";
 `mkdir -p $mailboxDir`;
 `chmod 770 $mailboxDir`;
-`chown vmail.mail /var/vmail`;
+`chown -R vmail.vmail $mailboxDir`;
 print " done\n";
 
 while ( my($file, $query) = each %postfixFiles ){
