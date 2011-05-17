@@ -40,10 +40,14 @@ chomp $dbpass;
 my $dbhost = "localhost";
 my $dbname = "postfix";
 
+my $unixUser = "vmail";
+
+my $saslauthdFile = "/etc/default/saslauthd";
+
 my $fqdn = `hostname -f`;
 chomp $fqdn;
 
-my $packages = "dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql libapache2-mod-php5 php5-mysql php5-imap";
+my $packages = "dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql libapache2-mod-php5 php5-mysql php5-imap libsasl2-2 libsasl2-modules sasl2-bin";
 
 #### Postfixadmin-specific config  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -88,6 +92,12 @@ sub main_cf(){
 	my $uid = shift;
 	my $gid = shift;
 	return <<EOF;
+smtpd_tls_cert_file=/etc/ssl/certs/mail-cert.pem
+smtpd_tls_key_file=/etc/ssl/private/mail-key.pem
+smtpd_use_tls=yes
+smtpd_tls_session_cache_database = btree:\${queue_directory}/smtpd_scache
+smtp_tls_session_cache_database = btree:\${queue_directory}/smtp_scache
+
 virtual_mailbox_domains = proxy:mysql:/etc/postfix//mysql_virtual_domains_maps.cf
 virtual_alias_maps =
    proxy:mysql:$postfixDir/mysql_virtual_alias_maps.cf,
@@ -99,6 +109,28 @@ virtual_mailbox_maps =
 virtual_mailbox_base = $mailboxDir
 virtual_uid_maps = static:$uid
 virtual_gid_maps = static:$gid
+
+
+# TLS config
+#smtp_use_tls = yes
+#smtpd_use_tls = yes
+#smtp_tls_note_starttls_offer = yes
+#smtpd_tls_key_file = /etc/postfix/ssl/smtpd.pem
+#smtpd_tls_cert_file = /etc/postfix/ssl/smtpd.pem
+#smtpd_tls_CAfile = /etc/postfix/ssl/smtpd.pem
+#smtpd_tls_loglevel = 1
+#smtpd_tls_received_header = yes
+#smtpd_tls_session_cache_timeout = 3600s
+#tls_random_source = dev:/dev/urandom
+#smtpd_tls_auth_only = no 
+
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+broken_sasl_auth_clients = yes
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_local_domain =
+smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated, reject_unauth_destination 
+
 EOF
 }
 
@@ -106,7 +138,7 @@ EOF
 sub master_cf() {
 	return <<EOF;
 dovecot   unix  -       n       n       -       -       pipe
-  flags=DRhu user=vmail:vmail argv=/usr/libexec/dovecot/deliver -d \${recipient}
+  flags=DRhu user=$unixUser:$unixUser argv=/usr/libexec/dovecot/deliver -d \${recipient}
 EOF
 }
 
@@ -127,52 +159,66 @@ sub dovecotConf(){
 	my $uid = shift;
 
 	copy ($dovecotConf, $dovecotConfBackupFile) or die "Error backing up Dovecot config file ($dovecotConf to $dovecotConfBackupFile)";
-	open(my $in, "<", $dovecotConfBackupFile) or die "Error opening dovecot backup file ($dovecotConfBackupFile) for reading";
-	open(my $out, ">", $dovecotConf) or die "Error opening Dovecot config file ($dovecotConf) for writing";
 
-	my $inBlock = 0;
-	while(<$in>){
+	return <<EOF;
+protocols = imap imaps pop3 pop3s
+log_timestamp = "%Y-%m-%d %H:%M:%S "
+mail_location = maildir:$mailboxDir/%u/
+mail_privileged_group = $unixUser
+first_valid_uid = $uid
+disable_plaintext_auth = no
 
-		# Set mail_location:
-		my $line = $_;
-		if (/^\s*#\s*Mail_Location\s*$/){
-			$line = "mail_location = $mailboxDir/%u/\n";
-			$line =~ s/\/\//\//;
-		}
-
-		# set first_valid_uid
-		if (/^#first_valid_uid/){
-			$line = "first_valid_uid = $uid\n";
-		}
-
-		# comment out passdb pam and userdb pam lines
-		if( (/\s*passdb pam {/) || (/\s*userdb passwd {/) ){
-			$line =~ s/^/#/;
-			$inBlock=1;
-		}
-		#... and their closure
-		if( (/\s*}/) && ($inBlock == 1) ){
-			$line =~ s/^/#/;
-			$inBlock = 0;
-		}
-
-		# uncomment passdb sql lines
-		if ( (/\s*#passdb sql/) || (/\s*#userdb sql/) || (/\s*#args =.+sql.+/) ){
-		 	$line =~ s/#/ /;
-			$inBlock = 2;
-		}
-		#... and their closure
-		if( (/\s*#\s*}/) && ($inBlock == 2) ){
-			$line =~ s/#/ /;
-			$inBlock = 0;
-		}
-		print $out $line;
-	}	
-
-
-	return "first_valid_uid=$uid\nmail_location=maildir:$mailboxDir/%u/\n";
+protocol imap {
 }
 
+protocol pop3 {
+  pop3_uidl_format = %08Xu%08Xv
+}
+
+auth default {
+  mechanisms = plain
+  userdb sql {
+    args = /etc/dovecot/dovecot-sql.conf
+  }
+  passdb sql {
+    args = /etc/dovecot/dovecot-sql.conf
+  }
+  socket listen {
+    client {
+      path = /var/spool/postfix/private/auth
+      mode = 0660
+      user = postfix
+      group = postfix
+    }
+  }
+}
+
+
+
+EOF
+}
+
+
+### SASL-specific config # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+sub sasl() {
+	my $tmpfile = "/tmp/saslauthd".time();
+	move($saslauthdFile, $tmpfile) or die "Error backing up $saslauthdFile to $tmpfile";
+	open(my $in, "<", $tmpfile);
+	open(my $out, ">", $saslauthdFile);
+	while(<$in>){
+		my $line = $_;
+		if(/^START=no/){
+			$line = "START=yes\n";
+		}
+		if(/^OPTIONS/){
+			$line = "OPTIONS=\"-c -m /var/spool/postfix/var/run/saslauthd\""
+		}
+		print $out $line;
+	}
+	close($out); 
+	close($in);
+}
 
 ### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
@@ -201,17 +247,17 @@ print "Restarting Apache2...";
 `apache2ctl restart 2>&1 > /dev/null`;
 print " done\n";
 
-print "Creating user vmail...";
-`useradd -r -d $mailboxDir -s /sbin/nologin -c "Virtual mailbox" vmail`;
-my $uid = getpwnam('vmail');
-my $gid = getgrnam('vmail');
+print "Creating user $unixUser";
+`useradd -r -d $mailboxDir -s /sbin/nologin -c "Virtual mailbox" $unixUser`;
+my $uid = getpwnam($unixUser);
+my $gid = getgrnam($unixUser);
 chomp $uid;
 print " done (UID: $uid)\n";
 
 print "Creating mailbox dir ($mailboxDir)...";
 `mkdir -p $mailboxDir`;
 `chmod 770 $mailboxDir`;
-`chown -R vmail.vmail $mailboxDir`;
+`chown -R $unixUser:$unixUser $mailboxDir`;
 print " done\n";
 
 while ( my($file, $query) = each %postfixFiles ){
@@ -230,8 +276,8 @@ print $f &dovecot_sql($uid);
 close($f);
 print " done\n";
 
-print "Appending to /etc/dovecot/dovecot.conf...";
-open (my $f, ">>", "/etc/dovecot/dovecot.conf") or die "Error opening dovecot.conf (/etc/dovecot/dovecot.conf) for appending";
+print "Replacing /etc/dovecot/dovecot.conf...";
+open (my $f, ">", "/etc/dovecot/dovecot.conf") or die "Error opening dovecot.conf (/etc/dovecot/dovecot.conf) for writing";
 print $f &dovecotConf($uid);
 close($f);
 print " done\n";
@@ -246,6 +292,14 @@ print "Appending to $postfixMastercf...";
 open (my $f, ">>", $postfixMastercf);
 print $f &master_cf;
 close($f);
+print " done\n";
+
+print "Creating auth socket dir...";
+`mkdir -p /var/spool/postfix/private/`;
+print " done\n";
+
+print "Configuring saslauthd...";
+&sasl();
 print " done\n";
 
 print "Creating db...";
@@ -318,7 +372,13 @@ if ($? != 0){
 	print " done\n";
 }
 
+print "Starting saslauthd....";
+system("/etc/init.d/saslauthd start 2>/dev/null >/dev/null");
+if ($? != 0){
+	print " ERROR\n";
+}else{
+	print " done\n";
+}
+
 print $postfixadminManual;
 exit 0;
-
-
