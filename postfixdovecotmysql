@@ -5,10 +5,16 @@
 # Installs and nearly configures a Postfix/Dovecot/MySQL/Postfixadmin mailer on a Debianish system.
 
 # You should be able to just drop it in and run it. If it's missing anything (it only needs 
-# LWP::Simple and for Postfix and MySQL to be configured). Tries to get the MySQL debian-sys-maint
-# 
+# LWP::Simple and for Postfix and MySQL to be configured). Tries to get the MySQL debian-sys-maint 
+# credentials and use them. Currently, I'm not quite sure what it does if it doesn't get them :)
 
-# Written by Avi in 2011
+# Written by Avi (@avi.co) in 2011
+
+##Todo: randomise postfixadmin password
+##Todo: cope with bad debian-sys-maint credentials well
+##Todo: cope with db already existing
+##Todo: cope with file changes having already been made 
+##Todo: test on Lucid and anything else both important and not Debian (??)
 
 #Depends: libwww-perl, mysql-server, postfix
 
