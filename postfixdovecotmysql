@@ -15,6 +15,7 @@
 ##Todo: cope with db already existing
 ##Todo: cope with file changes having already been made 
 ##Todo: test on Lucid and anything else both important and not Debian (??)
+##Todo: set sensible permissions on all those files with mysql credentials in them
 
 #Depends: libwww-perl, mysql-server, postfix
 
@@ -34,37 +35,60 @@ if($@){
 my ($y,$m,$d)=(localtime(time))[5,4,3];
 my $date = $y + 1900 ."-".sprintf("%02d",$m)."-$d";
 
+# These are the credentials we use to log in to MySQL to create the db and the user. For the details
+# of the user we create, see $db* lower down
 my ($mysqlhost, $mysqluser, $mysqlpass) = &getMySQLCredentials();
+
+# There's a bunch of faffing with files. Every file we edit is backed up first, unless it's 
+# (almost) guaranteed to be either not there already or not wanted (like postfix's mysql config).
 
 my $dovecotDotConfFile = "/etc/dovecot/dovecot.conf";
 my $dovecotDotConfBackupFile = "/etc/dovecot/.bak_${date}_dovecot.conf";
+
 my $dovecotSqlFile = "/etc/dovecot/dovecot-sql.conf";
 my $dovecotSqlBackupFile = "/etc/dovecot/.bak_${date}_dovecot-sql.conf";
 
+# We make the MySQL files in here, otherwise it's not used.
 my $postfixDir = "/etc/postfix";
+
 my $postfixMainDotCfFile = "/etc/postfix/main.cf";
 my $postfixMainDotCfBackupFile = "/etc/postfix/.bak_${date}_main.cf";
+
 my $postfixMasterDotCfFile = "/etc/postfix/master.cf";
 my $postfixMasterDotCfBackupFile = "/etc/postfix/.bak_${date}_master.cf";
 
 my $saslauthdFile = "/etc/default/saslauthd";
 my $saslauthdBackupFile = "/etc/default/.bak_${date}_saslauthd";
 
+# This is the dir under which the mailboxes are created, as "/var/mail/<email-address>/Maildir
 my $mailboxDir = "/var/vmail/";
 
-my $dbuser = "postfix";
+# This is the user that postfix and dovecot (and whatever else) will use to interfer with the db. 
+my $dbuser = "vmail";
 my $dbhost = "localhost";
 my $dbname = "vmail";
 my $dbpass = `pwgen 25 1`;
 chomp $dbpass;
 
+# I assume a group named the same as this. Dovecot and Postfix both do their virtual mailbox related
+# jobs as this user, so the contents of $mailboxDir must be owned by it
 my $unixUser = "vmail";
 
+# Used just to give a link to postfixadmin
 my $fqdn = `hostname -f`;
 chomp $fqdn;
 
+# Packages we depend upon. Remember that teh script can't cope with installers that need interaction. 
+# Any that do need adding below
 my $packages = "dovecot-common dovecot-imapd dovecot-pop3d postfix-mysql libapache2-mod-php5 php5-mysql php5-imap libsasl2-2 libsasl2-modules sasl2-bin";
 
+# postfix and mysql-server both require human-interaction to install, so we insist it's done 
+# before this script runs. There's probably a more elegant way of doing this.
+my @installed = grep(/^ii/,`dpkg -l postfix mysql-server`);
+unless ($#installed >= 1){
+	print STDERR "I need both the postfix and mysql-server packages installed and configured before I can begin.\n";
+	exit 1;
+}
 #### Postfixadmin-specific config  # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
 my $postfixadminURL = "http://downloads.sourceforge.net/project/postfixadmin/postfixadmin/postfixadmin-2.3.3/postfixadmin-2.3.3.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fpostfixadmin%2F&ts=1303232343&use_mirror=ignum";
@@ -256,13 +280,6 @@ sub sasl() {
 
 ### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
-# postfix and mysql-server both require human-interaction to install, so we insist it's done 
-# before this script runs:
-my @installed = grep(/^ii/,`dpkg -l postfix mysql-server`);
-unless ($#installed >= 1){
-	print STDERR "I need both the postfix and mysql-server packages installed and configured before I can begin.\n";
-	exit 1;
-}
 
 # If we've not managed to deduce the password for the debian-sys-maint user, we'll prompt 
 # for root's here:
