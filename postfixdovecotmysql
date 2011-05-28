@@ -13,11 +13,7 @@
 
 ##Todo: randomise postfixadmin password
 ##Todo: cope with bad debian-sys-maint credentials
-##Todo: cope with db already existing
-##Todo: cope with file changes having already been made 
 ##Todo: test on Lucid and anything else both important and not Debian (??)
-##Todo: set sensible permissions on all those files with mysql credentials in them
-##Todo: only die() when it's actually appropriate. If we can't backup a file we probably can't clobber it either...
 ##Todo: run a mirror containing the latest postfixadmin version
 ##Todo: fix debian-sys-maint usage on Lenny
 
@@ -385,6 +381,8 @@ while ( my($file, $query) = each %postfixFiles ){
 		print $f &postfixCredentials();
 		print $f $query;
 		close($f);
+		`chown postfix:postfix $file`;
+		`chmod 600 $file`;
 		print " done\n";
 	}
 }
@@ -407,6 +405,8 @@ if ( -f $dovecotSqlFile ){
 		}else{
 			print $f &dovecotDotSql($uid);
 			close($f);
+			`chown root:root $dovecotSqlFile`;
+			`chmod 600 $dovecotSqlFile`;
 			print " done\n";
 		}
 	}
