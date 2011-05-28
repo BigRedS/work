@@ -284,38 +284,45 @@ EOF
 # file
 # This sub's unique in that it does the backing up itself, since it parses the backup
 # into the new real file.
-sub sasl() {
-	if (move($saslauthdFile, $saslauthdBackupFile)){
-	
-		open(my $in, "<", $saslauthdBackupFile);
-		open(my $out, ">", $saslauthdFile);
-		while(<$in>){
-			my $line = $_;
-			if(/^START=no/){
-				$line = "START=yes\n";
-			}
-			if(/^OPTIONS/){
-				$line = "OPTIONS=\"-c -m /var/spool/postfix/var/run/saslauthd\""
-			}
-			print $out $line;
-		}
-		close($out); 
-		close($in);
-		return 1;
-	}else{
-		warn "Error backing up $saslauthdFile to $saslauthdBackupFile";
-		return 0;
+sub sasl(){ 
+	my $in;
+	my $out;
+	eval {open($in, "<", $saslauthdBackupFile) or die()};
+	if ($@){
+		print "Error opening $saslauthdBackupFile for reading\n";
+		return;
 	}
+	eval{open($out, ">", $saslauthdFile)};
+	if ($@){
+		print "Error opening $saslauthdFile for writing\n";
+		return;
+	}
+	while(<$in>){
+		my $line = $_;
+		if(/^START=no/){
+			$line = "START=yes\n";
+		}
+		if(/^OPTIONS/){
+			$line = "OPTIONS=\"-c -m /var/spool/postfix/var/run/saslauthd\""
+		}
+		print $out $line;
+	}
+	close($out); 
+	close($in);
+	print "done\n";
 }
 
 ### The bit where we do stuff # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
 
+print "Guessing MySQL credentials...";
 if ( (!$mysqlhost || !$mysqluser )){
 	($mysqlhost, $mysqluser, $mysqlpass) = &getMySQLCredentials();
+	print "Done\n";
 }
 if(!$mysqlpass){
 	if (!$mysqlpass){
-		print "Please enter the password for mysql user \'$mysqluser\':\n";
+		print "Incomplete\n";
+		print "\tPlease enter the password for mysql user \'$mysqluser\':\n";
 		system('stty','-echo');
 		chop($mysqlpass=<STDIN>);
 		system('stty','echo');
@@ -325,15 +332,12 @@ if(!$mysqlpass){
 
 # Herein, the first 'print' of any stanza should serve as a reasonable comment on what it's doing
 
-print "Installing packages (this can take a few minutes)...";
+print "Installing packages (this can take a few minutes)... ";
 `apt-get -y install $packages`;
 print " done\n";
 
-print "Restarting Apache2...";
-`apache2ctl restart 2>&1 > /dev/null`;
-print " done\n";
 
-print "Creating user $unixUser in group $unixUser...";
+print "Creating user $unixUser in group $unixUser... ";
 my($uid,$gid);
 if ( getpwnam($unixUser) =~ /(\d+)/){
 	$uid = $1;
@@ -348,7 +352,8 @@ if ( getpwnam($unixUser) =~ /(\d+)/){
 }else{
 	my $cmd = "useradd -r -d $mailboxDir -s /sbin/nologin -c \"Virtual mailbox\" $unixUser";
 	if(system($cmd) != 0){
-		print "FAIL\n\t$cmd\n\texited non-zero\n";
+		print "FAIL\n";
+		print STDERR "\t$cmd\n\texited non-zero\n";
 	}else{
 		$uid = getpwnam($unixUser);
 		$gid = getgrnam($unixUser);
@@ -360,18 +365,21 @@ if ( getpwnam($unixUser) =~ /(\d+)/){
 print "Creating mailbox dir ($mailboxDir)...";
 my $cmd = "mkdir -p $mailboxDir && chmod 770 $mailboxDir && chown -R $unixUser:$unixUser $mailboxDir";
 if(system($cmd) != 0){
-	print "FAIL\n\t$cmd\n\texited non-zero\n";
+	print "FAIL\n";
+	print STDERR "\t$cmd\n\texited non-zero\n";
 }else{
 	print " done\n";
 }
 
+# Creating postfix MySQL files:
 while ( my($file, $query) = each %postfixFiles ){
 	my $file = $postfixDir."/".$file.".cf";
 	print "Creating $file...";
 	my $f;
 	eval{open($f, ">", $file)};
 	if ($@){
-		print "WARN: couldn't open $file for writing."; 
+		print "FAIL\n";
+		print STDERR "\tcouldn't open $file for writing.\n"; 
 		push(@errors,$file);
 	}else{
 		print $f &postfixCredentials();
@@ -383,25 +391,18 @@ while ( my($file, $query) = each %postfixFiles ){
 
 
 
-
-
-
 # dovecot-sql.conf:
 print "Backing up $dovecotSqlFile to $dovecotSqlBackupFile...";
 if ( -f $dovecotSqlFile ){
-	my $write = 1;
-	eval {copy($dovecotSqlFile, $dovecotSqlBackupFile)};
-	if ($@){
-		$write = &failedBackup();
-	}
-
+	my $write = &backup($dovecotSqlFile, $dovecotSqlBackupFile);
 	if($write == 1){
 		print " done\n";
-		print "Creating new $dovecotSqlFile...";
+		print "Creating new $dovecotSqlFile...\n";
 		my $f;
-		eval {open ($f, ">", $dovecotSqlFile)};
+		eval {open ($f, ">", $dovecotSqlFile) or die()};
 		if ($@){
-			print "wARN failed to open $dovecotSqlFile for writing";
+			print "FAIL\n";
+			print STDERR "\tfailed to open $dovecotSqlFile for writing\n";
 			push(@errors,$dovecotSqlFile);
 		}else{
 			print $f &dovecotDotSql($uid);
@@ -410,27 +411,21 @@ if ( -f $dovecotSqlFile ){
 		}
 	}
 }else{ 
-	print " unnecesary - $dovecotSqlFile doesn't exist\n";
+	print " skip; $dovecotSqlFile doesn't exist\n";
 }
 
 
 
 # dovecot.conf
 print "Backing up $dovecotDotConfFile to $dovecotDotConfBackupFile...";
-my $write;
-	eval{copy($dovecotDotConfFile, $dovecotDotConfBackupFile)};
-	if($@){	
-		$write = &failedBackup();
-	}else{	
-		$write = 1;
-		print " done\n";
-	}
-if ($write){
+my $write = &backup($dovecotDotConfFile, $dovecotDotConfBackupFile);
+if ($write == 1){
 	print "Replacing $dovecotDotConfFile ...";
 	my $f;
-	eval{open ($f, ">", "$dovecotDotConfFile")};
+	eval{open ($f, ">", "$dovecotDotConfFile") or die()};
 	if($@){
-		print "WARN: couldn't open $dovecotDotConfFile for writing\n";
+		print "FAIL\n";
+		print STDERR "\tcouldn't open $dovecotDotConfFile for writing\n";
 	}else{
 		print $f &dovecotDotConf($uid);
 		close($f);
@@ -440,85 +435,136 @@ if ($write){
 
 
 # main.cf
-print "Backing up $postfixMainDotCfFile to $postfixMainDotCfBackupFile....";
-open(my $f, "<", $postfixMainDotCfFile);
-my @file = <$f>;
-my @lines = grep(/insertion by postfixdovecotmysql script (.*) \#/ , @file);
+print "Checking for config in main.cf...";
+my @lines; 
+my $lastrun;
+my $skipMainDotCf = 0;
+eval{
+	open(my $f, "<", $postfixMainDotCfFile) or die();
+	my @file = <$f>;
+	@lines = grep(/insertion by postfixdovecotmysql script (\d\d\d\d-\d\d-\d\d) \#/ , @file);
+	$lastrun = $1;
+};
+if($@){
+	print"FAIL\n";
+	print STDERR "\tError opening $postfixMainDotCfFile for writing. Several other things are likely to go wrong\n";
+}
 if ( $#lines > 0 ){
-	print " Found insertion from $1, skipping main.cf config\n";
+	print " done\n\tFound insertion from $lastrun, skipping main.cf config\n";
+	$skipMainDotCf = 1;
+}else{
+	print "done\n";
+}
+
+print "Backing up $postfixMainDotCfFile to $postfixMainDotCfBackupFile...";
+if ($skipMainDotCf == 1){
+	print "skipping $postfixMainDotCfFile\n";
 }else{	
-	eval{copy($postfixMainDotCfFile, $postfixMainDotCfBackupFile)};
-	if($@){
-		print "ERROR copying $postfixMainDotCfFile to $postfixMainDotCfBackupFile\n";
-		exit 1;
-	}else{
+	my $write = &backup($postfixMainDotCfFile, $postfixMainDotCfBackupFile);
+	if ($write == 1){
 		print " done\n";
 		print "Appending to $postfixMainDotCfFile...";
-		open (my $f, ">>", $postfixMainDotCfFile) or die "Error opening postfix's main.cf ($postfixMainDotCfFile) for writing";
-		print $f &mainDotCf($uid,$gid);
-		close($f);
-		print " done\n";
+		my $f;
+		eval {open ($f, ">>", $postfixMainDotCfFile) or die()};
+		if ($@){
+			print "FAIL\n";
+			print STDERR "\terror opening postfix's main.cf ($postfixMainDotCfFile) for writing\n";
+		}else{
+			print $f &mainDotCf($uid,$gid);
+			close($f);
+			print " done\n";
+		}
 	}
 }
 
 
 print "Backing up $postfixMasterDotCfFile to $postfixMasterDotCfBackupFile...";
-eval{copy ($postfixMasterDotCfFile, $postfixMasterDotCfBackupFile)};
-if($@){
-	print "ERROR\n";
-	exit 1;
+$write = &backup($postfixMasterDotCfFile, $postfixMasterDotCfBackupFile);
+if ($write == 1){
+	print "done\n";
+	print "Appending to $postfixMasterDotCfFile...";
+	my $f;
+	eval{open ($f, ">>", $postfixMasterDotCfFile) or die()};
+	if($@){
+		print "FAIL\n";
+		print STDERR"\tcouldn't open $postfixMasterDotCfFile for appending";
+	}else{
+		print $f &masterDotCf;
+		close($f);
+		print " done\n";
+	}
 }else{
-	print " done\n";
-}
-
-print "Appending to $postfixMasterDotCfFile...";
-eval{open (my $f, ">>", $postfixMasterDotCfFile)};
-if($@){
-	print "WARN: couldn't open for appending";
-}else{
-	print $f &masterDotCf;
-	close($f);
-	print " done\n";
+	print "Skipping $postfixMasterDotCfFile\n";
 }
 
 print "Creating auth socket dir...";
 if (system("mkdir -p /var/spool/postfix/private/") == 0){
 	print " done\n";
 }else{
-	print "ERROR (mkdir -p /var/spool/postfix/private/)n";
+	print "FAIL\n";
+	print STDERR"\t'mkdir -p /var/spool/postfix/private/)' returned non-zero\n";
 }
 
-print "Configuring saslauthd...";
-&sasl();
-print " done\n";
+print "Backing up $saslauthdFile to $saslauthdBackupFile...";
 
-print "Configuring db...";
+$write = &backup($saslauthdFile, $saslauthdBackupFile);
+if ($write == 1){
+	print "Configuring saslauthd...";
+	&sasl();
+}	
+#print " done\n";
+
+
+
+# MySQL setup:
+
+print "Creating db...";
 my $mysqlconnect = "mysql -u $mysqluser -h $mysqlhost -p$mysqlpass";
-my @mysqlCommands=(
-	"create database $dbname",
-	"grant all privileges on $dbname.* to $dbuser identified by \'$dbpass\'"
-);
-foreach(@mysqlCommands){
-	my $cmd = "echo \"$_\" | $mysqlconnect";
-	`$cmd`;
+
+if (system("echo \"use $dbname\" | $mysqlconnect 2>/dev/null") == 0){
+	print "skip; db already exists\n";
+}else{
+	if(system("echo \"create database $dbname\" | $mysqlconnect") == 0){
+		print " done\n";
+	}else{
+		print "FAIL\n";
+		print STDERR "\'create database $dbname' returned non-zero'\n";
+	}
 }
-print " done\n";
+
+print "Configuring db";
+if (system("echo \"grant all privileges on $dbname.* to $dbuser identified by \'$dbpass\'\" | $mysqlconnect") == 0){
+	print " done\n";
+}else{
+	print "FAIL\n";
+	print STDERR"\t\'grant all privileges on $dbname.* to $dbuser identified by \'$dbpass\'\\' returned non-zero\n";
+}
+
 
 print "Getting postfixadmin...";
 getstore($postfixadminURL, "/var/www/postfixadmin.tar.gz");
 print " done\n";
 
-if ( -e $postfixadminDir ){
-	my $dest = $postfixadminDir.$date;
-	print "Moving $postfixadminDir to $dest";
-	move ($postfixadminDir, $dest);
-	print " done\n";
-}
+#f ( -e $postfixadminDir ){
+#	my $dest = $postfixadminDir.$date;
+#	print "Moving $postfixadminDir to $dest";
+#	move ($postfixadminDir, $dest);
+#	print " done\n";
+#}
 
 print "Extracting postfixadmin...";
-`tar -C /var/www -xf /var/www/postfixadmin.tar.gz`;
-`mv /var/www/postfixadmin-* $postfixadminDir`;
-print " done\n";
+if ( -d $postfixadminDir){
+	opendir (my $d, $postfixadminDir);
+ 	my @files = grep { !/^\./ && -f "$postfixadminDir/$_" } readdir($d);
+	if ($#files > 1){
+		print "FAIL\n";
+		print STDERR "\t$postfixadminDir already has files in it. Not touching them\n";
+	}
+}else{
+	`tar -C /var/www -xf /var/www/postfixadmin.tar.gz`;
+	`mv /var/www/postfixadmin-* $postfixadminDir`;
+	print " done\n";
+}
 
 print "Configuring postfixadmin...";
 open (my $f, "<", $postfixadminDir."/config.inc.php") or die "Error opening postifixadmin's config.inc.php";
@@ -547,6 +593,11 @@ print $f join("", @newconfig);
 close($f);
 print " done\n";
 
+print "\n\n";
+print "\tRESTARTING SERVICES\n";
+print "\tI'm about to restart some services.\n\tI cannot check they've come back up successfully.\n\tYou need to do this yourself";
+print "\n\n\n";
+
 print "Restarting postfix...";
 system("/etc/init.d/postfix restart 2>/dev/null >/dev/null");
 if ($? != 0){
@@ -563,13 +614,24 @@ if ($? != 0){
 	print " done\n";
 }
 
-print "Starting saslauthd....";
+print "Starting saslauthd...";
 system("/etc/init.d/saslauthd start 2>/dev/null >/dev/null");
 if ($? != 0){
 	print " ERROR\n";
 }else{
 	print " done\n";
 }
+
+print "Restarting Apache2...";
+system("apache2ctl restart 2>&1 > /dev/null");
+
+if ($? != 0){
+	print " ERROR\n";
+}else{
+	print " done\n";
+}
+
+print "\n\n";
 
 print $postfixadminManual;
 exit 0;
@@ -593,20 +655,28 @@ sub getMySQLCredentials(){
 	return ($host,$user,$password);
 }
 
-# Returns 1 if we're to write to the file anyway, 0 if we're not
-sub failedBackup(){
-	print "FAIL\n";
-	print "\tWould you like to write to it anyway?\n";
-	print "\tY/(N)";
-	my $return;
-	if ($ignoreBackupFailures == 1){
-		return 1;
-	}
-	chop(my $answer=<STDIN>);
-	if($answer=~/^y$/i){
-		$return = 1;
+sub backup(){
+	my $from = shift;
+	my $to = shift;
+	my $return = 2;
+	copy($from, $to);
+	if ($!){
+		if ($ignoreBackupFailures != 1){
+			print "FAIL\n";
+			print "\tWould you like to write to it anyway? y/(n)\n\t";
+			chop(my $answer=<STDIN>);
+			if($answer=~/^y$/i){
+				$return = "1";
+			}else{
+				$return = "0";
+			}
+		}else{
+			print "FAIL but ignoring";
+			$return = "1";
+		}
 	}else{
-		$return = 0;
+		$return = 1;
+		print "done\n";
 	}
 	return $return;
 }
