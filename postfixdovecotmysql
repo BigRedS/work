@@ -14,8 +14,6 @@
 ##Todo: randomise postfixadmin password
 ##Todo: cope with bad debian-sys-maint credentials
 ##Todo: test on Lucid and anything else both important and not Debian (??)
-##Todo: run a mirror containing the latest postfixadmin version
-##Todo: fix debian-sys-maint usage on Lenny
 
 #Depends: libwww-perl, mysql-server, postfix
 
@@ -313,15 +311,14 @@ sub sasl(){
 print "Guessing MySQL credentials...";
 if ( (!$mysqlhost || !$mysqluser )){
 	($mysqlhost, $mysqluser, $mysqlpass) = &getMySQLCredentials();
-	print "Done\n";
-}
-if(!$mysqlpass){
 	if (!$mysqlpass){
-		print "Incomplete\n";
+		print "Failed\n";
 		print "\tPlease enter the password for mysql user \'$mysqluser\':\n";
 		system('stty','-echo');
 		chop($mysqlpass=<STDIN>);
 		system('stty','echo');
+	}else{
+		print "Done\n";
 	}
 }
 
@@ -638,8 +635,25 @@ exit 0;
 
 
 sub getMySQLCredentials(){
-	open (my $f, "<", "/etc/mysql/debian.cnf") or die "Error opening /etc/mysql/debian.cnf for reading. Are you root? Is this Debian?";;
+	my $f;
 	my ($host,$user,$password);
+	if ( -f "/etc/debian_version"){
+		eval{open ($f, "<", "/etc/debian_version") or die()};
+		if (!$@){
+			my @file = <$f>;
+			if ($file[0] =~ /^5/){
+				# If we're here, we're on a Lenny box, and debian-sys-maint wont
+				# let us grant privileges, so we want to use root.
+				$user = "root";
+				$host = "localhost";
+				$password = undef;
+				return($host,$user,$password);
+			}
+		}
+	}		
+	# If we're here, we're on a non-Lenny box which, as far as I've tested, means Squeeze or Lucid. 
+	# We therefore just want to get the debian-sys-maint credentials:
+	open (my $f, "<", "/etc/mysql/debian.cnf") or die "Error opening /etc/mysql/debian.cnf for reading. Are you root? Is this Debian?";;
 	while(<$f>){
 		if (/host\s+=\s+(.+)\s+$/){
 			$host = $1;
