@@ -20,6 +20,8 @@
 use strict;
 use File::Copy;
 
+select(STDOUT);
+$|++;
 
 my ($y,$m,$d)=(localtime(time))[5,4,3];
 my $date = $y + 1900 ."-".sprintf("%02d",$m)."-$d";
@@ -57,6 +59,7 @@ my $saslauthdBackupFile = "/etc/default/.bak_${date}_saslauthd";
 
 # This is the dir under which the mailboxes are created, as "/var/mail/<email-address>/Maildir
 my $mailboxDir = "/var/vmail/";
+my $mailLocation = $mailboxDir."/%d/%u";
 
 # This is the user that postfix and dovecot (and whatever else) will use to interfer with the db. 
 my $dbuser = "vmail";
@@ -231,7 +234,7 @@ sub dovecotDotConf(){
 	return <<EOF;
 protocols = imap imaps pop3 pop3s
 log_timestamp = "%Y-%m-%d %H:%M:%S "
-mail_location = maildir:$mailboxDir/%u/
+mail_location = maildir:$mailLocation
 mail_privileged_group = $unixUser
 # This should match that of the owner of the $mailboxDir hierarchy, and 
 # be the same as the one postfix uses.
